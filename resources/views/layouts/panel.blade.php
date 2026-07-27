@@ -349,6 +349,58 @@
             .table-container {
                 overflow-x: auto;
             }
+
+            .filter-card {
+                margin-bottom: 20px;
+            }
+
+            .filters {
+                display: grid;
+                grid-template-columns: 2fr 1fr 1fr auto;
+                gap: 14px;
+                align-items: end;
+            }
+
+            .filter-actions {
+                display: flex;
+                gap: 8px;
+            }
+
+            .device-options {
+                display: grid;
+                gap: 14px;
+                border: 1px solid #e3e8ef;
+                border-radius: 10px;
+                padding: 16px;
+            }
+
+            .pagination {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 20px;
+                margin-top: 22px;
+            }
+
+            .pagination a {
+                color: #172033;
+                font-weight: bold;
+                text-decoration: none;
+            }
+
+            .pagination span {
+                color: #98a2b3;
+            }
+
+            @media (max-width: 850px) {
+                .filters {
+                    grid-template-columns: 1fr;
+                }
+
+                .filter-actions {
+                    align-items: stretch;
+                }
+            }
         }
     </style>
 </head>

@@ -80,11 +80,14 @@ class BusinessController extends Controller
     public function destroy(
         Business $business
     ): RedirectResponse {
-        if ($business->portalUsers()->exists()) {
+        if (
+            $business->portalUsers()->exists()
+            || $business->devices()->exists()
+        ) {
             return to_route('panel.locales.index')
                 ->with(
                     'error',
-                    'El local no puede eliminarse porque tiene usuarios asociados.'
+                    'El local no puede eliminarse porque tiene usuarios o dispositivos asociados.'
                 );
         }
 

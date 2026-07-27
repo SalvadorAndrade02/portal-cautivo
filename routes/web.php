@@ -6,6 +6,7 @@ use App\Http\Controllers\Panel\DashboardController;
 use App\Http\Controllers\Panel\PlanController;
 use App\Http\Controllers\Panel\PortalUserController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Panel\DeviceController;
 
 Route::get('/', function () {
     return auth()->check()
@@ -65,6 +66,14 @@ Route::middleware('auth')
         )
             ->parameters([
                 'usuarios' => 'portalUser',
+            ])
+            ->except('show');
+        Route::resource(
+            'dispositivos',
+            DeviceController::class
+        )
+            ->parameters([
+                'dispositivos' => 'device',
             ])
             ->except('show');
     });

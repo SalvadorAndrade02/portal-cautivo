@@ -47,4 +47,9 @@ class Business extends Model
             ?? $this->plan?->max_devices
             ?? 1;
     }
+
+    public function devices(): HasMany
+    {
+        return $this->hasMany(Device::class);
+    }
 }
