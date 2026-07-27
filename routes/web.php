@@ -1,34 +1,70 @@
 <?php
 
-use App\Http\Controllers\Panel\PlanController;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Auth\AdminLoginController;
 use App\Http\Controllers\Panel\BusinessController;
+use App\Http\Controllers\Panel\DashboardController;
+use App\Http\Controllers\Panel\PlanController;
 use App\Http\Controllers\Panel\PortalUserController;
+use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/panel/planes');
+Route::get('/', function () {
+    return auth()->check()
+        ? to_route('panel.dashboard')
+        : to_route('login');
+});
 
-Route::prefix('panel')
+Route::get(
+    '/login',
+    [AdminLoginController::class, 'create']
+)->name('login');
+
+Route::post(
+    '/login',
+    [AdminLoginController::class, 'store']
+)
+    ->middleware('throttle:5,1')
+    ->name('login.store');
+
+Route::post(
+    '/logout',
+    [AdminLoginController::class, 'destroy']
+)
+    ->middleware('auth')
+    ->name('logout');
+
+Route::middleware('auth')
+    ->prefix('panel')
     ->name('panel.')
     ->group(function (): void {
-        Route::resource('planes', PlanController::class)
+        Route::get(
+            '/',
+            DashboardController::class
+        )->name('dashboard');
+
+        Route::resource(
+            'planes',
+            PlanController::class
+        )
             ->parameters([
                 'planes' => 'plan',
             ])
-            ->except([
-                'show',
-            ]);
-        Route::resource('locales', BusinessController::class)
+            ->except('show');
+
+        Route::resource(
+            'locales',
+            BusinessController::class
+        )
             ->parameters([
                 'locales' => 'business',
             ])
-            ->except([
-                'show',
-            ]);
-        Route::resource('usuarios', PortalUserController::class)
+            ->except('show');
+
+        Route::resource(
+            'usuarios',
+            PortalUserController::class
+        )
             ->parameters([
                 'usuarios' => 'portalUser',
             ])
-            ->except([
-                'show',
-            ]);
+            ->except('show');
     });

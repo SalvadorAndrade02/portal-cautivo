@@ -13,6 +13,93 @@
     </title>
 
     <style>
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+        }
+
+        .header-user {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .header-user span {
+            font-size: 14px;
+        }
+
+        .logout-button {
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 7px;
+            padding: 7px 10px;
+            background: transparent;
+            color: white;
+            cursor: pointer;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 18px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border: 1px solid #e3e8ef;
+            border-radius: 12px;
+            padding: 20px;
+            background: white;
+            box-shadow: 0 4px 14px rgba(16, 24, 40, 0.05);
+        }
+
+        .stat-card span,
+        .stat-card small {
+            color: #667085;
+        }
+
+        .stat-card strong {
+            font-size: 30px;
+        }
+
+        .warning-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .warning-list>div {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            border-bottom: 1px solid #e7ebf0;
+            padding: 12px 0;
+        }
+
+        .warning-list>div:last-child {
+            border-bottom: 0;
+        }
+
+        @media (max-width: 900px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 600px) {
+            .header-content {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
         :root {
             font-family: Arial, Helvetica, sans-serif;
             color: #172033;
@@ -268,21 +355,47 @@
 
 <body>
     <header>
-        <h1>Administración del portal cautivo</h1>
+        <div class="header-content">
+            <div>
+                <h1>Administración del portal cautivo</h1>
 
-        <nav>
-            <a href="{{ route('panel.planes.index') }}">
-                Planes
-            </a>
+                <nav>
+                    <a href="{{ route('panel.dashboard') }}">
+                        Dashboard
+                    </a>
 
-            <a href="{{ route('panel.locales.index') }}">
-                Locales
-            </a>
+                    <a href="{{ route('panel.planes.index') }}">
+                        Planes
+                    </a>
 
-            <a href="{{ route('panel.usuarios.index') }}">
-                Usuarios
-            </a>
-        </nav>
+                    <a href="{{ route('panel.locales.index') }}">
+                        Locales
+                    </a>
+
+                    <a href="{{ route('panel.usuarios.index') }}">
+                        Usuarios
+                    </a>
+                </nav>
+            </div>
+
+            <div class="header-user">
+                <span>
+                    {{ auth()->user()->name }}
+                </span>
+
+                <form
+                    action="{{ route('logout') }}"
+                    method="POST">
+                    @csrf
+
+                    <button
+                        class="logout-button"
+                        type="submit">
+                        Cerrar sesión
+                    </button>
+                </form>
+            </div>
+        </div>
     </header>
 
     <main>
