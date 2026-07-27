@@ -173,12 +173,19 @@
         }
 
         input,
-        textarea {
+        textarea,
+        select {
             width: 100%;
             border: 1px solid #cfd6df;
             border-radius: 8px;
             padding: 10px 12px;
             font: inherit;
+            background: white;
+        }
+
+        small {
+            color: #667085;
+            line-height: 1.5;
         }
 
         textarea {
@@ -212,6 +219,32 @@
             margin-top: 5px;
         }
 
+        header {
+            background: #172033;
+            color: white;
+            padding: 18px 28px;
+        }
+
+        header h1 {
+            margin: 0 0 14px;
+            font-size: 21px;
+        }
+
+        nav {
+            display: flex;
+            gap: 18px;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        nav a:hover {
+            text-decoration: underline;
+        }
+
         @media (max-width: 760px) {
             .page-header {
                 align-items: flex-start;
@@ -236,6 +269,20 @@
 <body>
     <header>
         <h1>Administración del portal cautivo</h1>
+
+        <nav>
+            <a href="{{ route('panel.planes.index') }}">
+                Planes
+            </a>
+
+            <a href="{{ route('panel.locales.index') }}">
+                Locales
+            </a>
+
+            <a href="{{ route('panel.usuarios.index') }}">
+                Usuarios
+            </a>
+        </nav>
     </header>
 
     <main>
