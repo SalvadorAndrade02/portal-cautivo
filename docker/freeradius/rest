@@ -1,0 +1,26 @@
+rest {
+    authenticate {
+        uri = "http://app/api/internal/radius/authenticate"
+
+        method = "post"
+        body = "json"
+
+        data = '{"username":"%{jsonquote:%{User-Name}}","password":"%{jsonquote:%{User-Password}}","ip_address":"%{jsonquote:%{Framed-IP-Address}}","mac_address":"%{jsonquote:%{Calling-Station-Id}}","nas_ip_address":"%{jsonquote:%{NAS-IP-Address}}","nas_identifier":"%{jsonquote:%{NAS-Identifier}}"}'
+
+        force_to = "plain"
+        auth = "none"
+        timeout = 15
+    }
+
+    pool {
+        start = 1
+        min = 1
+        max = 10
+        spare = 1
+
+        uses = 0
+        lifetime = 0
+        idle_timeout = 60
+        retry_delay = 5
+    }
+}

@@ -40,6 +40,29 @@ services:
     networks:
       - portal_network
 
+  radius:
+    build:
+      context: ./docker/freeradius
+      dockerfile: Dockerfile
+    container_name: portal_cautivo_radius
+
+    command:
+      - "-X"
+
+    environment:
+      RADIUS_API_TOKEN: ${RADIUS_API_TOKEN}
+      RADIUS_SHARED_SECRET: ${RADIUS_SHARED_SECRET}
+
+    ports:
+      - "192.168.56.1:1812:1812/udp"
+      - "192.168.56.1:1813:1813/udp"
+
+    depends_on:
+      - app
+
+    networks:
+      - portal_network
+
 volumes:
   mysql_data:
 

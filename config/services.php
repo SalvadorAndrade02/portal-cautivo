@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'radius' => [
+        'api_token' => env('RADIUS_API_TOKEN'),
+    ],
+
 ];

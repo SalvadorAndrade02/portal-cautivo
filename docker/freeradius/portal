@@ -1,0 +1,42 @@
+server portal {
+    listen {
+        type = auth
+        ipaddr = *
+        port = 1812
+    }
+
+    listen {
+        type = acct
+        ipaddr = *
+        port = 1813
+    }
+
+    authorize {
+        if (!&User-Name) {
+            reject
+        }
+
+        if (!&User-Password) {
+            reject
+        }
+
+        update control {
+            &REST-HTTP-Header := "X-Radius-Token: $ENV{RADIUS_API_TOKEN}"
+            &Auth-Type := REST
+        }
+    }
+
+    authenticate {
+        Auth-Type REST {
+            rest
+        }
+    }
+
+    preacct {
+        preprocess
+    }
+
+    accounting {
+        ok
+    }
+}

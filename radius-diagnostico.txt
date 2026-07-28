@@ -1,0 +1,922 @@
+===== CONFIGURACION PORTAL ACTIVA =====
+server portal {
+    listen {
+        type = auth
+        ipaddr = *
+        port = 1812
+    }
+
+    listen {
+        type = acct
+        ipaddr = *
+        port = 1813
+    }
+
+    authorize {
+        if (!&User-Name) {
+            reject
+        }
+
+        if (!&User-Password) {
+            reject
+        }
+
+        update control {
+            &REST-HTTP-Header := "X-Radius-Token: $ENV{RADIUS_API_TOKEN}"
+            &Auth-Type := REST
+        }
+    }
+
+    authenticate {
+        Auth-Type REST {
+            rest
+        }
+    }
+
+    preacct {
+        preprocess
+    }
+
+    accounting {
+        ok
+    }
+}
+
+===== CONFIGURACION REST ACTIVA =====
+rest {
+    authenticate {
+        uri = "http://app/api/internal/radius/authenticate"
+
+        method = "post"
+        body = "json"
+
+        data = '{"username":"%{jsonquote:%{User-Name}}","password":"%{jsonquote:%{User-Password}}","ip_address":"%{jsonquote:%{Framed-IP-Address}}","mac_address":"%{jsonquote:%{Calling-Station-Id}}","nas_ip_address":"%{jsonquote:%{NAS-IP-Address}}","nas_identifier":"%{jsonquote:%{NAS-Identifier}}"}'
+
+        force_to = "plain"
+        auth = "none"
+        timeout = 5
+    }
+
+    pool {
+        start = 0
+        min = 0
+        max = 10
+        spare = 0
+
+        uses = 0
+        lifetime = 0
+        idle_timeout = 60
+        retry_delay = 5
+    }
+}
+
+===== LOGS DE LA PRUEBA =====
+portal_cautivo_radius  | (0) Cleaning up request packet ID 122 with timestamp +64 due to cleanup_delay was reached
+portal_cautivo_radius  | Ready to process requests
+portal_cautivo_radius  | Ready to process requests
+portal_cautivo_radius  | Signalled to terminate
+portal_cautivo_radius  | Exiting normally
+portal_cautivo_radius  | rlm_rest (rest): Removing connection pool
+portal_cautivo_radius  | rlm_rest (rest): Closing connection (0) - Shutting down connection pool
+portal_cautivo_radius  | FreeRADIUS Version 3.2.10
+portal_cautivo_radius  | Copyright (C) 1999-2026 The FreeRADIUS server project and contributors
+portal_cautivo_radius  | There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A
+portal_cautivo_radius  | PARTICULAR PURPOSE
+portal_cautivo_radius  | You may redistribute copies of FreeRADIUS under the terms of the
+portal_cautivo_radius  | GNU General Public License
+portal_cautivo_radius  | For more information about these matters, see the file named COPYRIGHT
+portal_cautivo_radius  |  
+portal_cautivo_radius  | FreeRADIUS is developed, maintained, and supported by InkBridge Networks.
+portal_cautivo_radius  | For commercial support, please email sales@inkbridgenetworks.com
+portal_cautivo_radius  | https://inkbridgenetworks.com/
+portal_cautivo_radius  | Starting - reading configuration files ...
+portal_cautivo_radius  | including dictionary file /usr/share/freeradius/dictionary
+portal_cautivo_radius  | including dictionary file /usr/share/freeradius/dictionary.dhcp
+portal_cautivo_radius  | including dictionary file /usr/share/freeradius/dictionary.vqp
+portal_cautivo_radius  | including dictionary file /etc/freeradius/dictionary
+portal_cautivo_radius  | including configuration file /etc/freeradius/radiusd.conf
+portal_cautivo_radius  | including configuration file /etc/freeradius/proxy.conf
+portal_cautivo_radius  | including configuration file /etc/freeradius/clients.conf
+portal_cautivo_radius  | including files in directory /etc/freeradius/mods-enabled/
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/attr_filter
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/unix
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/chap
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/detail.log
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/unpack
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/dynamic_clients
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/sradutmp
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/dpsk
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/files
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/replicate
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/passwd
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/totp
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/expiration
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/soh
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/pap
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/utf8
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/echo
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/expr
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/exec
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/eap
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/date
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/linelog
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/realm
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/logintime
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/radutmp
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/proxy_rate_limit
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/ntlm_auth
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/preprocess
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/digest
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/mschap
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/detail
+portal_cautivo_radius  | including configuration file /etc/freeradius/mods-enabled/rest
+portal_cautivo_radius  | including files in directory /etc/freeradius/policy.d/
+portal_cautivo_radius  | including configuration file /etc/freeradius/policy.d/rfc7542
+portal_cautivo_radius  | including configuration file /etc/freeradius/policy.d/debug
+portal_cautivo_radius  | including configuration file /etc/freeradius/policy.d/eap
+portal_cautivo_radius  | including configuration file /etc/freeradius/policy.d/moonshot-targeted-ids
+portal_cautivo_radius  | including configuration file /etc/freeradius/policy.d/accounting
+portal_cautivo_radius  | including configuration file /etc/freeradius/policy.d/cui
+portal_cautivo_radius  | including configuration file /etc/freeradius/policy.d/abfab-tr
+portal_cautivo_radius  | including configuration file /etc/freeradius/policy.d/canonicalization
+portal_cautivo_radius  | including configuration file /etc/freeradius/policy.d/filter
+portal_cautivo_radius  | including configuration file /etc/freeradius/policy.d/dhcp
+portal_cautivo_radius  | including configuration file /etc/freeradius/policy.d/operator-name
+portal_cautivo_radius  | including configuration file /etc/freeradius/policy.d/control
+portal_cautivo_radius  | including files in directory /etc/freeradius/sites-enabled/
+portal_cautivo_radius  | including configuration file /etc/freeradius/sites-enabled/inner-tunnel
+portal_cautivo_radius  | including configuration file /etc/freeradius/sites-enabled/portal
+portal_cautivo_radius  | main {
+portal_cautivo_radius  |  security {
+portal_cautivo_radius  |  	user = "freerad"
+portal_cautivo_radius  |  	group = "freerad"
+portal_cautivo_radius  |  	allow_core_dumps = no
+portal_cautivo_radius  |  }
+portal_cautivo_radius  | 	name = "freeradius"
+portal_cautivo_radius  | 	prefix = "/usr"
+portal_cautivo_radius  | 	localstatedir = "/var"
+portal_cautivo_radius  | 	logdir = "/var/log/freeradius"
+portal_cautivo_radius  | 	run_dir = "/var/run/freeradius"
+portal_cautivo_radius  | }
+portal_cautivo_radius  | main {
+portal_cautivo_radius  | 	name = "freeradius"
+portal_cautivo_radius  | 	prefix = "/usr"
+portal_cautivo_radius  | 	localstatedir = "/var"
+portal_cautivo_radius  | 	sbindir = "/usr/sbin"
+portal_cautivo_radius  | 	logdir = "/var/log/freeradius"
+portal_cautivo_radius  | 	run_dir = "/var/run/freeradius"
+portal_cautivo_radius  | 	libdir = "/usr/lib/freeradius"
+portal_cautivo_radius  | 	radacctdir = "/var/log/freeradius/radacct"
+portal_cautivo_radius  | 	hostname_lookups = no
+portal_cautivo_radius  | 	max_request_time = 30
+portal_cautivo_radius  | 	proxy_dedup_window = 1
+portal_cautivo_radius  | 	cleanup_delay = 5
+portal_cautivo_radius  | 	max_requests = 16384
+portal_cautivo_radius  | 	max_fds = 512
+portal_cautivo_radius  | 	postauth_client_lost = no
+portal_cautivo_radius  | 	pidfile = "/var/run/freeradius/freeradius.pid"
+portal_cautivo_radius  | 	checkrad = "/usr/sbin/checkrad"
+portal_cautivo_radius  | 	debug_level = 0
+portal_cautivo_radius  | 	proxy_requests = yes
+portal_cautivo_radius  |  log {
+portal_cautivo_radius  |  	stripped_names = no
+portal_cautivo_radius  |  	auth = no
+portal_cautivo_radius  |  	auth_badpass = no
+portal_cautivo_radius  |  	auth_goodpass = no
+portal_cautivo_radius  |  	colourise = yes
+portal_cautivo_radius  |  	msg_denied = "You are already logged in - access denied"
+portal_cautivo_radius  |  	suppress_secrets = yes
+portal_cautivo_radius  |  }
+portal_cautivo_radius  |  resources {
+portal_cautivo_radius  |  }
+portal_cautivo_radius  |  security {
+portal_cautivo_radius  |  	max_attributes = 200
+portal_cautivo_radius  |  	reject_delay = 1.000000
+portal_cautivo_radius  |  	delay_proxy_rejects = no
+portal_cautivo_radius  |  	status_server = yes
+portal_cautivo_radius  |  	require_message_authenticator = "yes"
+portal_cautivo_radius  |  	limit_proxy_state = "auto"
+portal_cautivo_radius  |  }
+portal_cautivo_radius  |  unlang {
+portal_cautivo_radius  |  	group_stop_return = no
+portal_cautivo_radius  |  	policy_stop_return = no
+portal_cautivo_radius  |  	improved_state_tracking = no
+portal_cautivo_radius  |  	proxy_null_listener = no
+portal_cautivo_radius  |  }
+portal_cautivo_radius  | }
+portal_cautivo_radius  | radiusd: #### Loading Realms and Home Servers ####
+portal_cautivo_radius  |  proxy server {
+portal_cautivo_radius  |  	retry_delay = 5
+portal_cautivo_radius  |  	retry_count = 3
+portal_cautivo_radius  |  	default_fallback = no
+portal_cautivo_radius  |  	dead_time = 120
+portal_cautivo_radius  |  	wake_all_if_all_dead = no
+portal_cautivo_radius  |  }
+portal_cautivo_radius  |  home_server localhost {
+portal_cautivo_radius  |  	nonblock = no
+portal_cautivo_radius  |  	ipaddr = 127.0.0.1
+portal_cautivo_radius  |  	port = 1812
+portal_cautivo_radius  |  	type = "auth"
+portal_cautivo_radius  |  	secret = <<< secret >>>
+portal_cautivo_radius  |  	response_window = 20.000000
+portal_cautivo_radius  |  	response_timeouts = 1
+portal_cautivo_radius  |  	max_outstanding = 65536
+portal_cautivo_radius  |  	zombie_period = 40
+portal_cautivo_radius  |  	status_check = "status-server"
+portal_cautivo_radius  |  	ping_interval = 30
+portal_cautivo_radius  |  	check_interval = 30
+portal_cautivo_radius  |  	check_timeout = 4
+portal_cautivo_radius  |  	num_answers_to_alive = 3
+portal_cautivo_radius  |  	revive_interval = 120
+portal_cautivo_radius  |   limit {
+portal_cautivo_radius  |   	max_connections = 16
+portal_cautivo_radius  |   	max_requests = 0
+portal_cautivo_radius  |   	lifetime = 0
+portal_cautivo_radius  |   	idle_timeout = 0
+portal_cautivo_radius  |   	connect_timeout = 3
+portal_cautivo_radius  |   	connect_fail_interval = 30
+portal_cautivo_radius  |   	certificate_fail_interval = 300
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   coa {
+portal_cautivo_radius  |   	irt = 2
+portal_cautivo_radius  |   	mrt = 16
+portal_cautivo_radius  |   	mrc = 5
+portal_cautivo_radius  |   	mrd = 30
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |  }
+portal_cautivo_radius  |  home_server_pool my_auth_failover {
+portal_cautivo_radius  | 	type = fail-over
+portal_cautivo_radius  | 	home_server = localhost
+portal_cautivo_radius  |  }
+portal_cautivo_radius  |  realm example.com {
+portal_cautivo_radius  | 	auth_pool = my_auth_failover
+portal_cautivo_radius  |  }
+portal_cautivo_radius  |  realm LOCAL {
+portal_cautivo_radius  |  }
+portal_cautivo_radius  | radiusd: #### Loading Clients ####
+portal_cautivo_radius  |  client portal_lab {
+portal_cautivo_radius  |  	ipaddr = 0.0.0.0/0
+portal_cautivo_radius  |  	require_message_authenticator = "auto"
+portal_cautivo_radius  |  	protocol_error = no
+portal_cautivo_radius  |  	secret = <<< secret >>>
+portal_cautivo_radius  |  	shortname = "portal-lab"
+portal_cautivo_radius  |  	proto = "udp"
+portal_cautivo_radius  |   limit {
+portal_cautivo_radius  |   	max_connections = 16
+portal_cautivo_radius  |   	lifetime = 0
+portal_cautivo_radius  |   	idle_timeout = 30
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |  }
+portal_cautivo_radius  | Debug state unknown (cap_sys_ptrace capability not set)
+portal_cautivo_radius  | Configuration version: b9ae-0319-768f-1e48
+portal_cautivo_radius  | systemd watchdog is disabled
+portal_cautivo_radius  |  # Creating Auth-Type = mschap
+portal_cautivo_radius  |  # Creating Auth-Type = eap
+portal_cautivo_radius  |  # Creating Auth-Type = PAP
+portal_cautivo_radius  |  # Creating Auth-Type = CHAP
+portal_cautivo_radius  |  # Creating Auth-Type = MS-CHAP
+portal_cautivo_radius  |  # Creating Auth-Type = REST
+portal_cautivo_radius  | radiusd: #### Instantiating modules ####
+portal_cautivo_radius  |  modules {
+portal_cautivo_radius  |   # Loaded module rlm_attr_filter
+portal_cautivo_radius  |   # Loading module "attr_filter.post-proxy" from file /etc/freeradius/mods-enabled/attr_filter
+portal_cautivo_radius  |   attr_filter attr_filter.post-proxy {
+portal_cautivo_radius  |   	filename = "/etc/freeradius/mods-config/attr_filter/post-proxy"
+portal_cautivo_radius  |   	key = "%{Realm}"
+portal_cautivo_radius  |   	relaxed = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "attr_filter.pre-proxy" from file /etc/freeradius/mods-enabled/attr_filter
+portal_cautivo_radius  |   attr_filter attr_filter.pre-proxy {
+portal_cautivo_radius  |   	filename = "/etc/freeradius/mods-config/attr_filter/pre-proxy"
+portal_cautivo_radius  |   	key = "%{Realm}"
+portal_cautivo_radius  |   	relaxed = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "attr_filter.access_reject" from file /etc/freeradius/mods-enabled/attr_filter
+portal_cautivo_radius  |   attr_filter attr_filter.access_reject {
+portal_cautivo_radius  |   	filename = "/etc/freeradius/mods-config/attr_filter/access_reject"
+portal_cautivo_radius  |   	key = "%{User-Name}"
+portal_cautivo_radius  |   	relaxed = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "attr_filter.access_challenge" from file /etc/freeradius/mods-enabled/attr_filter
+portal_cautivo_radius  |   attr_filter attr_filter.access_challenge {
+portal_cautivo_radius  |   	filename = "/etc/freeradius/mods-config/attr_filter/access_challenge"
+portal_cautivo_radius  |   	key = "%{User-Name}"
+portal_cautivo_radius  |   	relaxed = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "attr_filter.accounting_response" from file /etc/freeradius/mods-enabled/attr_filter
+portal_cautivo_radius  |   attr_filter attr_filter.accounting_response {
+portal_cautivo_radius  |   	filename = "/etc/freeradius/mods-config/attr_filter/accounting_response"
+portal_cautivo_radius  |   	key = "%{User-Name}"
+portal_cautivo_radius  |   	relaxed = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "attr_filter.coa" from file /etc/freeradius/mods-enabled/attr_filter
+portal_cautivo_radius  |   attr_filter attr_filter.coa {
+portal_cautivo_radius  |   	filename = "/etc/freeradius/mods-config/attr_filter/coa"
+portal_cautivo_radius  |   	key = "%{User-Name}"
+portal_cautivo_radius  |   	relaxed = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_always
+portal_cautivo_radius  |   # Loading module "reject" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   always reject {
+portal_cautivo_radius  |   	rcode = "reject"
+portal_cautivo_radius  |   	simulcount = 0
+portal_cautivo_radius  |   	mpp = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "fail" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   always fail {
+portal_cautivo_radius  |   	rcode = "fail"
+portal_cautivo_radius  |   	simulcount = 0
+portal_cautivo_radius  |   	mpp = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "ok" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   always ok {
+portal_cautivo_radius  |   	rcode = "ok"
+portal_cautivo_radius  |   	simulcount = 0
+portal_cautivo_radius  |   	mpp = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "handled" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   always handled {
+portal_cautivo_radius  |   	rcode = "handled"
+portal_cautivo_radius  |   	simulcount = 0
+portal_cautivo_radius  |   	mpp = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "invalid" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   always invalid {
+portal_cautivo_radius  |   	rcode = "invalid"
+portal_cautivo_radius  |   	simulcount = 0
+portal_cautivo_radius  |   	mpp = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "userlock" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   always userlock {
+portal_cautivo_radius  |   	rcode = "userlock"
+portal_cautivo_radius  |   	simulcount = 0
+portal_cautivo_radius  |   	mpp = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "notfound" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   always notfound {
+portal_cautivo_radius  |   	rcode = "notfound"
+portal_cautivo_radius  |   	simulcount = 0
+portal_cautivo_radius  |   	mpp = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "noop" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   always noop {
+portal_cautivo_radius  |   	rcode = "noop"
+portal_cautivo_radius  |   	simulcount = 0
+portal_cautivo_radius  |   	mpp = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "updated" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   always updated {
+portal_cautivo_radius  |   	rcode = "updated"
+portal_cautivo_radius  |   	simulcount = 0
+portal_cautivo_radius  |   	mpp = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_unix
+portal_cautivo_radius  |   # Loading module "unix" from file /etc/freeradius/mods-enabled/unix
+portal_cautivo_radius  |   unix {
+portal_cautivo_radius  |   	radwtmp = "/var/log/freeradius/radwtmp"
+portal_cautivo_radius  |   }
+portal_cautivo_radius  | Creating attribute Unix-Group
+portal_cautivo_radius  |   # Loaded module rlm_chap
+portal_cautivo_radius  |   # Loading module "chap" from file /etc/freeradius/mods-enabled/chap
+portal_cautivo_radius  |   # Loaded module rlm_detail
+portal_cautivo_radius  |   # Loading module "auth_log" from file /etc/freeradius/mods-enabled/detail.log
+portal_cautivo_radius  |   detail auth_log {
+portal_cautivo_radius  |   	filename = "/var/log/freeradius/radacct/%{%{Packet-Src-IP-Address}:-%{Packet-Src-IPv6-Address}}/auth-detail-%Y%m%d"
+portal_cautivo_radius  |   	header = "%t"
+portal_cautivo_radius  |   	permissions = 384
+portal_cautivo_radius  |   	locking = no
+portal_cautivo_radius  |   	dates_as_integer = no
+portal_cautivo_radius  |   	escape_filenames = no
+portal_cautivo_radius  |   	log_packet_header = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "reply_log" from file /etc/freeradius/mods-enabled/detail.log
+portal_cautivo_radius  |   detail reply_log {
+portal_cautivo_radius  |   	filename = "/var/log/freeradius/radacct/%{%{Packet-Src-IP-Address}:-%{Packet-Src-IPv6-Address}}/reply-detail-%Y%m%d"
+portal_cautivo_radius  |   	header = "%t"
+portal_cautivo_radius  |   	permissions = 384
+portal_cautivo_radius  |   	locking = no
+portal_cautivo_radius  |   	dates_as_integer = no
+portal_cautivo_radius  |   	escape_filenames = no
+portal_cautivo_radius  |   	log_packet_header = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "pre_proxy_log" from file /etc/freeradius/mods-enabled/detail.log
+portal_cautivo_radius  |   detail pre_proxy_log {
+portal_cautivo_radius  |   	filename = "/var/log/freeradius/radacct/%{%{Packet-Src-IP-Address}:-%{Packet-Src-IPv6-Address}}/pre-proxy-detail-%Y%m%d"
+portal_cautivo_radius  |   	header = "%t"
+portal_cautivo_radius  |   	permissions = 384
+portal_cautivo_radius  |   	locking = no
+portal_cautivo_radius  |   	dates_as_integer = no
+portal_cautivo_radius  |   	escape_filenames = no
+portal_cautivo_radius  |   	log_packet_header = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "post_proxy_log" from file /etc/freeradius/mods-enabled/detail.log
+portal_cautivo_radius  |   detail post_proxy_log {
+portal_cautivo_radius  |   	filename = "/var/log/freeradius/radacct/%{%{Packet-Src-IP-Address}:-%{Packet-Src-IPv6-Address}}/post-proxy-detail-%Y%m%d"
+portal_cautivo_radius  |   	header = "%t"
+portal_cautivo_radius  |   	permissions = 384
+portal_cautivo_radius  |   	locking = no
+portal_cautivo_radius  |   	dates_as_integer = no
+portal_cautivo_radius  |   	escape_filenames = no
+portal_cautivo_radius  |   	log_packet_header = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_unpack
+portal_cautivo_radius  |   # Loading module "unpack" from file /etc/freeradius/mods-enabled/unpack
+portal_cautivo_radius  |   # Loaded module rlm_dynamic_clients
+portal_cautivo_radius  |   # Loading module "dynamic_clients" from file /etc/freeradius/mods-enabled/dynamic_clients
+portal_cautivo_radius  |   # Loaded module rlm_radutmp
+portal_cautivo_radius  |   # Loading module "sradutmp" from file /etc/freeradius/mods-enabled/sradutmp
+portal_cautivo_radius  |   radutmp sradutmp {
+portal_cautivo_radius  |   	filename = "/var/log/freeradius/sradutmp"
+portal_cautivo_radius  |   	username = "%{User-Name}"
+portal_cautivo_radius  |   	case_sensitive = yes
+portal_cautivo_radius  |   	check_with_nas = yes
+portal_cautivo_radius  |   	permissions = 420
+portal_cautivo_radius  |   	caller_id = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_dpsk
+portal_cautivo_radius  |   # Loading module "dpsk" from file /etc/freeradius/mods-enabled/dpsk
+portal_cautivo_radius  |   dpsk {
+portal_cautivo_radius  |   	ruckus = no
+portal_cautivo_radius  |   	cache_size = 1024
+portal_cautivo_radius  |   	cache_lifetime = 86400
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_files
+portal_cautivo_radius  |   # Loading module "files" from file /etc/freeradius/mods-enabled/files
+portal_cautivo_radius  |   files {
+portal_cautivo_radius  |   	filename = "/etc/freeradius/mods-config/files/authorize"
+portal_cautivo_radius  |   	acctusersfile = "/etc/freeradius/mods-config/files/accounting"
+portal_cautivo_radius  |   	preproxy_usersfile = "/etc/freeradius/mods-config/files/pre-proxy"
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_replicate
+portal_cautivo_radius  |   # Loading module "replicate" from file /etc/freeradius/mods-enabled/replicate
+portal_cautivo_radius  |   # Loaded module rlm_passwd
+portal_cautivo_radius  |   # Loading module "etc_passwd" from file /etc/freeradius/mods-enabled/passwd
+portal_cautivo_radius  |   passwd etc_passwd {
+portal_cautivo_radius  |   	filename = "/etc/passwd"
+portal_cautivo_radius  |   	format = "*User-Name:Crypt-Password:"
+portal_cautivo_radius  |   	delimiter = ":"
+portal_cautivo_radius  |   	ignore_nislike = no
+portal_cautivo_radius  |   	ignore_empty = yes
+portal_cautivo_radius  |   	allow_multiple_keys = no
+portal_cautivo_radius  |   	hash_size = 100
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_totp
+portal_cautivo_radius  |   # Loading module "totp" from file /etc/freeradius/mods-enabled/totp
+portal_cautivo_radius  |   totp {
+portal_cautivo_radius  |   	time_step = 30
+portal_cautivo_radius  |   	otp_length = 6
+portal_cautivo_radius  |   	lookback_steps = 1
+portal_cautivo_radius  |   	lookback_interval = 30
+portal_cautivo_radius  |   	lookforward_steps = 0
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_expiration
+portal_cautivo_radius  |   # Loading module "expiration" from file /etc/freeradius/mods-enabled/expiration
+portal_cautivo_radius  |   # Loaded module rlm_soh
+portal_cautivo_radius  |   # Loading module "soh" from file /etc/freeradius/mods-enabled/soh
+portal_cautivo_radius  |   soh {
+portal_cautivo_radius  |   	dhcp = yes
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_pap
+portal_cautivo_radius  |   # Loading module "pap" from file /etc/freeradius/mods-enabled/pap
+portal_cautivo_radius  |   pap {
+portal_cautivo_radius  |   	normalise = yes
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_utf8
+portal_cautivo_radius  |   # Loading module "utf8" from file /etc/freeradius/mods-enabled/utf8
+portal_cautivo_radius  |   # Loaded module rlm_exec
+portal_cautivo_radius  |   # Loading module "echo" from file /etc/freeradius/mods-enabled/echo
+portal_cautivo_radius  |   exec echo {
+portal_cautivo_radius  |   	wait = yes
+portal_cautivo_radius  |   	program = "/bin/echo %{User-Name}"
+portal_cautivo_radius  |   	input_pairs = "request"
+portal_cautivo_radius  |   	output_pairs = "reply"
+portal_cautivo_radius  |   	shell_escape = yes
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_expr
+portal_cautivo_radius  |   # Loading module "expr" from file /etc/freeradius/mods-enabled/expr
+portal_cautivo_radius  |   expr {
+portal_cautivo_radius  |   	safe_characters = "@abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_: /+ñ+®+Â+++á+ó+ª+º+¿+®+¬+½+«+»+¦+ô+¦++++a+++ä+ë+û+£+ƒ+Ç+é+å+ç+ê+ë+è+ï+Ä+Å+ö+Æ+Ö+ø+£+©"
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "exec" from file /etc/freeradius/mods-enabled/exec
+portal_cautivo_radius  |   exec {
+portal_cautivo_radius  |   	wait = no
+portal_cautivo_radius  |   	input_pairs = "request"
+portal_cautivo_radius  |   	shell_escape = yes
+portal_cautivo_radius  |   	timeout = 10
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_eap
+portal_cautivo_radius  |   # Loading module "eap" from file /etc/freeradius/mods-enabled/eap
+portal_cautivo_radius  |   eap {
+portal_cautivo_radius  |   	default_eap_type = "md5"
+portal_cautivo_radius  |   	timer_expire = 60
+portal_cautivo_radius  |   	max_eap_type = 52
+portal_cautivo_radius  |   	ignore_unknown_eap_types = no
+portal_cautivo_radius  |   	cisco_accounting_username_bug = no
+portal_cautivo_radius  |   	max_sessions = 16384
+portal_cautivo_radius  |   	dedup_key = ""
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_date
+portal_cautivo_radius  |   # Loading module "date" from file /etc/freeradius/mods-enabled/date
+portal_cautivo_radius  |   date {
+portal_cautivo_radius  |   	format = "%b %e %Y %H:%M:%S %Z"
+portal_cautivo_radius  |   	utc = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "wispr2date" from file /etc/freeradius/mods-enabled/date
+portal_cautivo_radius  |   date wispr2date {
+portal_cautivo_radius  |   	format = "%Y-%m-%dT%H:%M:%S"
+portal_cautivo_radius  |   	utc = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_linelog
+portal_cautivo_radius  |   # Loading module "linelog" from file /etc/freeradius/mods-enabled/linelog
+portal_cautivo_radius  |   linelog {
+portal_cautivo_radius  |   	filename = "/var/log/freeradius/linelog"
+portal_cautivo_radius  |   	escape_filenames = no
+portal_cautivo_radius  |   	syslog_severity = "info"
+portal_cautivo_radius  |   	permissions = 384
+portal_cautivo_radius  |   	format = "This is a log message for %{User-Name}"
+portal_cautivo_radius  |   	reference = "messages.%{%{reply:Packet-Type}:-default}"
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "log_accounting" from file /etc/freeradius/mods-enabled/linelog
+portal_cautivo_radius  |   linelog log_accounting {
+portal_cautivo_radius  |   	filename = "/var/log/freeradius/linelog-accounting"
+portal_cautivo_radius  |   	escape_filenames = no
+portal_cautivo_radius  |   	syslog_severity = "info"
+portal_cautivo_radius  |   	permissions = 384
+portal_cautivo_radius  |   	format = ""
+portal_cautivo_radius  |   	reference = "Accounting-Request.%{%{Acct-Status-Type}:-unknown}"
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_realm
+portal_cautivo_radius  |   # Loading module "IPASS" from file /etc/freeradius/mods-enabled/realm
+portal_cautivo_radius  |   realm IPASS {
+portal_cautivo_radius  |   	format = "prefix"
+portal_cautivo_radius  |   	delimiter = "/"
+portal_cautivo_radius  |   	ignore_default = no
+portal_cautivo_radius  |   	ignore_null = no
+portal_cautivo_radius  |   	return_notfound = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "suffix" from file /etc/freeradius/mods-enabled/realm
+portal_cautivo_radius  |   realm suffix {
+portal_cautivo_radius  |   	format = "suffix"
+portal_cautivo_radius  |   	delimiter = "@"
+portal_cautivo_radius  |   	ignore_default = no
+portal_cautivo_radius  |   	ignore_null = no
+portal_cautivo_radius  |   	return_notfound = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "bangpath" from file /etc/freeradius/mods-enabled/realm
+portal_cautivo_radius  |   realm bangpath {
+portal_cautivo_radius  |   	format = "prefix"
+portal_cautivo_radius  |   	delimiter = "!"
+portal_cautivo_radius  |   	ignore_default = no
+portal_cautivo_radius  |   	ignore_null = no
+portal_cautivo_radius  |   	return_notfound = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "realmpercent" from file /etc/freeradius/mods-enabled/realm
+portal_cautivo_radius  |   realm realmpercent {
+portal_cautivo_radius  |   	format = "suffix"
+portal_cautivo_radius  |   	delimiter = "%"
+portal_cautivo_radius  |   	ignore_default = no
+portal_cautivo_radius  |   	ignore_null = no
+portal_cautivo_radius  |   	return_notfound = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "ntdomain" from file /etc/freeradius/mods-enabled/realm
+portal_cautivo_radius  |   realm ntdomain {
+portal_cautivo_radius  |   	format = "prefix"
+portal_cautivo_radius  |   	delimiter = "\"
+portal_cautivo_radius  |   	ignore_default = no
+portal_cautivo_radius  |   	ignore_null = no
+portal_cautivo_radius  |   	return_notfound = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_logintime
+portal_cautivo_radius  |   # Loading module "logintime" from file /etc/freeradius/mods-enabled/logintime
+portal_cautivo_radius  |   logintime {
+portal_cautivo_radius  |   	minimum_timeout = 60
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "radutmp" from file /etc/freeradius/mods-enabled/radutmp
+portal_cautivo_radius  |   radutmp {
+portal_cautivo_radius  |   	filename = "/var/log/freeradius/radutmp"
+portal_cautivo_radius  |   	username = "%{User-Name}"
+portal_cautivo_radius  |   	case_sensitive = yes
+portal_cautivo_radius  |   	check_with_nas = yes
+portal_cautivo_radius  |   	permissions = 384
+portal_cautivo_radius  |   	caller_id = yes
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_proxy_rate_limit
+portal_cautivo_radius  |   # Loading module "proxy_rate_limit" from file /etc/freeradius/mods-enabled/proxy_rate_limit
+portal_cautivo_radius  |   proxy_rate_limit {
+portal_cautivo_radius  |   	max_entries = 2048
+portal_cautivo_radius  |   	idle_timeout = 10
+portal_cautivo_radius  |   	num_subtables = 256
+portal_cautivo_radius  |   	window = 1
+portal_cautivo_radius  |   	count = 1
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "ntlm_auth" from file /etc/freeradius/mods-enabled/ntlm_auth
+portal_cautivo_radius  |   exec ntlm_auth {
+portal_cautivo_radius  |   	wait = yes
+portal_cautivo_radius  |   	program = "/path/to/ntlm_auth --request-nt-key --domain=MYDOMAIN --username=%{mschap:User-Name} --password=%{User-Password}"
+portal_cautivo_radius  |   	shell_escape = yes
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_preprocess
+portal_cautivo_radius  |   # Loading module "preprocess" from file /etc/freeradius/mods-enabled/preprocess
+portal_cautivo_radius  |   preprocess {
+portal_cautivo_radius  |   	huntgroups = "/etc/freeradius/mods-config/preprocess/huntgroups"
+portal_cautivo_radius  |   	hints = "/etc/freeradius/mods-config/preprocess/hints"
+portal_cautivo_radius  |   	with_ascend_hack = no
+portal_cautivo_radius  |   	ascend_channels_per_line = 23
+portal_cautivo_radius  |   	with_ntdomain_hack = no
+portal_cautivo_radius  |   	with_specialix_jetstream_hack = no
+portal_cautivo_radius  |   	with_cisco_vsa_hack = no
+portal_cautivo_radius  |   	with_alvarion_vsa_hack = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_digest
+portal_cautivo_radius  |   # Loading module "digest" from file /etc/freeradius/mods-enabled/digest
+portal_cautivo_radius  |   # Loaded module rlm_mschap
+portal_cautivo_radius  |   # Loading module "mschap" from file /etc/freeradius/mods-enabled/mschap
+portal_cautivo_radius  |   mschap {
+portal_cautivo_radius  |   	use_mppe = yes
+portal_cautivo_radius  |   	require_encryption = no
+portal_cautivo_radius  |   	require_strong = no
+portal_cautivo_radius  |   	with_ntdomain_hack = yes
+portal_cautivo_radius  |    passchange {
+portal_cautivo_radius  |    }
+portal_cautivo_radius  |   	allow_retry = yes
+portal_cautivo_radius  |   	winbind_retry_with_normalised_username = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loading module "detail" from file /etc/freeradius/mods-enabled/detail
+portal_cautivo_radius  |   detail {
+portal_cautivo_radius  |   	filename = "/var/log/freeradius/radacct/%{%{Packet-Src-IP-Address}:-%{Packet-Src-IPv6-Address}}/detail-%Y%m%d"
+portal_cautivo_radius  |   	header = "%t"
+portal_cautivo_radius  |   	permissions = 384
+portal_cautivo_radius  |   	locking = no
+portal_cautivo_radius  |   	dates_as_integer = no
+portal_cautivo_radius  |   	escape_filenames = no
+portal_cautivo_radius  |   	log_packet_header = no
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Loaded module rlm_rest
+portal_cautivo_radius  |   # Loading module "rest" from file /etc/freeradius/mods-enabled/rest
+portal_cautivo_radius  |   rest {
+portal_cautivo_radius  |   	connect_uri_socket_abstract = no
+portal_cautivo_radius  |   	connect_timeout = 4.000000
+portal_cautivo_radius  |   	http_negotiation = "default"
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   instantiate {
+portal_cautivo_radius  |   }
+portal_cautivo_radius  |   # Instantiating module "attr_filter.post-proxy" from file /etc/freeradius/mods-enabled/attr_filter
+portal_cautivo_radius  | reading pairlist file /etc/freeradius/mods-config/attr_filter/post-proxy
+portal_cautivo_radius  |   # Instantiating module "attr_filter.pre-proxy" from file /etc/freeradius/mods-enabled/attr_filter
+portal_cautivo_radius  | reading pairlist file /etc/freeradius/mods-config/attr_filter/pre-proxy
+portal_cautivo_radius  |   # Instantiating module "attr_filter.access_reject" from file /etc/freeradius/mods-enabled/attr_filter
+portal_cautivo_radius  | reading pairlist file /etc/freeradius/mods-config/attr_filter/access_reject
+portal_cautivo_radius  |   # Instantiating module "attr_filter.access_challenge" from file /etc/freeradius/mods-enabled/attr_filter
+portal_cautivo_radius  | reading pairlist file /etc/freeradius/mods-config/attr_filter/access_challenge
+portal_cautivo_radius  |   # Instantiating module "attr_filter.accounting_response" from file /etc/freeradius/mods-enabled/attr_filter
+portal_cautivo_radius  | reading pairlist file /etc/freeradius/mods-config/attr_filter/accounting_response
+portal_cautivo_radius  |   # Instantiating module "attr_filter.coa" from file /etc/freeradius/mods-enabled/attr_filter
+portal_cautivo_radius  | reading pairlist file /etc/freeradius/mods-config/attr_filter/coa
+portal_cautivo_radius  |   # Instantiating module "reject" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   # Instantiating module "fail" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   # Instantiating module "ok" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   # Instantiating module "handled" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   # Instantiating module "invalid" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   # Instantiating module "userlock" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   # Instantiating module "notfound" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   # Instantiating module "noop" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   # Instantiating module "updated" from file /etc/freeradius/mods-enabled/always
+portal_cautivo_radius  |   # Instantiating module "auth_log" from file /etc/freeradius/mods-enabled/detail.log
+portal_cautivo_radius  | rlm_detail (auth_log): 'User-Password' suppressed, will not appear in detail output
+portal_cautivo_radius  |   # Instantiating module "reply_log" from file /etc/freeradius/mods-enabled/detail.log
+portal_cautivo_radius  |   # Instantiating module "pre_proxy_log" from file /etc/freeradius/mods-enabled/detail.log
+portal_cautivo_radius  |   # Instantiating module "post_proxy_log" from file /etc/freeradius/mods-enabled/detail.log
+portal_cautivo_radius  |   # Instantiating module "dpsk" from file /etc/freeradius/mods-enabled/dpsk
+portal_cautivo_radius  |   # Instantiating module "files" from file /etc/freeradius/mods-enabled/files
+portal_cautivo_radius  | reading pairlist file /etc/freeradius/mods-config/files/authorize
+portal_cautivo_radius  | reading pairlist file /etc/freeradius/mods-config/files/accounting
+portal_cautivo_radius  | reading pairlist file /etc/freeradius/mods-config/files/pre-proxy
+portal_cautivo_radius  |   # Instantiating module "etc_passwd" from file /etc/freeradius/mods-enabled/passwd
+portal_cautivo_radius  | rlm_passwd: nfields: 3 keyfield 0(User-Name) listable: no
+portal_cautivo_radius  |   # Instantiating module "totp" from file /etc/freeradius/mods-enabled/totp
+portal_cautivo_radius  |   # Instantiating module "expiration" from file /etc/freeradius/mods-enabled/expiration
+portal_cautivo_radius  |   # Instantiating module "pap" from file /etc/freeradius/mods-enabled/pap
+portal_cautivo_radius  |   # Instantiating module "eap" from file /etc/freeradius/mods-enabled/eap
+portal_cautivo_radius  |    # Linked to sub-module rlm_eap_md5
+portal_cautivo_radius  |    # Linked to sub-module rlm_eap_gtc
+portal_cautivo_radius  |    gtc {
+portal_cautivo_radius  |    	challenge = "Password: "
+portal_cautivo_radius  |    	auth_type = "PAP"
+portal_cautivo_radius  |    }
+portal_cautivo_radius  |    # Linked to sub-module rlm_eap_tls
+portal_cautivo_radius  |    tls {
+portal_cautivo_radius  |    	tls = "tls-common"
+portal_cautivo_radius  |    }
+portal_cautivo_radius  |    tls-config tls-common {
+portal_cautivo_radius  |    	verify_depth = 0
+portal_cautivo_radius  |    	ca_path = "/etc/freeradius/certs"
+portal_cautivo_radius  |    	pem_file_type = yes
+portal_cautivo_radius  |    	private_key_file = "/etc/freeradius/certs/server.pem"
+portal_cautivo_radius  |    	certificate_file = "/etc/freeradius/certs/server.pem"
+portal_cautivo_radius  |    	ca_file = "/etc/freeradius/certs/ca.pem"
+portal_cautivo_radius  |    	private_key_password = <<< secret >>>
+portal_cautivo_radius  |    	fragment_size = 1024
+portal_cautivo_radius  |    	include_length = yes
+portal_cautivo_radius  |    	auto_chain = yes
+portal_cautivo_radius  |    	check_crl = no
+portal_cautivo_radius  |    	check_all_crl = no
+portal_cautivo_radius  |    	ca_path_reload_interval = 0
+portal_cautivo_radius  |    	cipher_list = "DEFAULT"
+portal_cautivo_radius  |    	cipher_server_preference = no
+portal_cautivo_radius  |    	reject_unknown_intermediate_ca = no
+portal_cautivo_radius  |    	ecdh_curve = ""
+portal_cautivo_radius  |    	tls_max_version = "1.2"
+portal_cautivo_radius  |    	tls_min_version = "1.2"
+portal_cautivo_radius  |     cache {
+portal_cautivo_radius  |     	enable = no
+portal_cautivo_radius  |     	lifetime = 24
+portal_cautivo_radius  |     	max_entries = 255
+portal_cautivo_radius  |     }
+portal_cautivo_radius  |     verify {
+portal_cautivo_radius  |     	skip_if_ocsp_ok = no
+portal_cautivo_radius  |     }
+portal_cautivo_radius  |     ocsp {
+portal_cautivo_radius  |     	enable = no
+portal_cautivo_radius  |     	override_cert_url = yes
+portal_cautivo_radius  |     	url = "http://127.0.0.1/ocsp/"
+portal_cautivo_radius  |     	use_nonce = yes
+portal_cautivo_radius  |     	timeout = 0
+portal_cautivo_radius  |     	softfail = no
+portal_cautivo_radius  |     }
+portal_cautivo_radius  |    }
+portal_cautivo_radius  |    # Linked to sub-module rlm_eap_ttls
+portal_cautivo_radius  |    ttls {
+portal_cautivo_radius  |    	tls = "tls-common"
+portal_cautivo_radius  |    	default_eap_type = "md5"
+portal_cautivo_radius  |    	copy_request_to_tunnel = no
+portal_cautivo_radius  |    	use_tunneled_reply = no
+portal_cautivo_radius  |    	virtual_server = "inner-tunnel"
+portal_cautivo_radius  |    	include_length = yes
+portal_cautivo_radius  |    	require_client_cert = no
+portal_cautivo_radius  |    }
+portal_cautivo_radius  | tls: Using cached TLS configuration from previous invocation
+portal_cautivo_radius  |    # Linked to sub-module rlm_eap_peap
+portal_cautivo_radius  |    peap {
+portal_cautivo_radius  |    	tls = "tls-common"
+portal_cautivo_radius  |    	default_eap_type = "mschapv2"
+portal_cautivo_radius  |    	copy_request_to_tunnel = no
+portal_cautivo_radius  |    	use_tunneled_reply = no
+portal_cautivo_radius  |    	proxy_tunneled_request_as_eap = yes
+portal_cautivo_radius  |    	virtual_server = "inner-tunnel"
+portal_cautivo_radius  |    	soh = no
+portal_cautivo_radius  |    	require_client_cert = no
+portal_cautivo_radius  |    }
+portal_cautivo_radius  | tls: Using cached TLS configuration from previous invocation
+portal_cautivo_radius  |    # Linked to sub-module rlm_eap_mschapv2
+portal_cautivo_radius  |    mschapv2 {
+portal_cautivo_radius  |    	with_ntdomain_hack = no
+portal_cautivo_radius  |    	send_error = no
+portal_cautivo_radius  |    }
+portal_cautivo_radius  |   # Instantiating module "linelog" from file /etc/freeradius/mods-enabled/linelog
+portal_cautivo_radius  |   # Instantiating module "log_accounting" from file /etc/freeradius/mods-enabled/linelog
+portal_cautivo_radius  |   # Instantiating module "IPASS" from file /etc/freeradius/mods-enabled/realm
+portal_cautivo_radius  |   # Instantiating module "suffix" from file /etc/freeradius/mods-enabled/realm
+portal_cautivo_radius  |   # Instantiating module "bangpath" from file /etc/freeradius/mods-enabled/realm
+portal_cautivo_radius  |   # Instantiating module "realmpercent" from file /etc/freeradius/mods-enabled/realm
+portal_cautivo_radius  |   # Instantiating module "ntdomain" from file /etc/freeradius/mods-enabled/realm
+portal_cautivo_radius  |   # Instantiating module "logintime" from file /etc/freeradius/mods-enabled/logintime
+portal_cautivo_radius  |   # Instantiating module "proxy_rate_limit" from file /etc/freeradius/mods-enabled/proxy_rate_limit
+portal_cautivo_radius  |   # Instantiating module "preprocess" from file /etc/freeradius/mods-enabled/preprocess
+portal_cautivo_radius  | reading pairlist file /etc/freeradius/mods-config/preprocess/huntgroups
+portal_cautivo_radius  | reading pairlist file /etc/freeradius/mods-config/preprocess/hints
+portal_cautivo_radius  |   # Instantiating module "mschap" from file /etc/freeradius/mods-enabled/mschap
+portal_cautivo_radius  | rlm_mschap (mschap): using internal authentication
+portal_cautivo_radius  |   # Instantiating module "detail" from file /etc/freeradius/mods-enabled/detail
+portal_cautivo_radius  |   # Instantiating module "rest" from file /etc/freeradius/mods-enabled/rest
+portal_cautivo_radius  |    authenticate {
+portal_cautivo_radius  |    	uri = "http://app/api/internal/radius/authenticate"
+portal_cautivo_radius  |    	method = "post"
+portal_cautivo_radius  |    	body = "json"
+portal_cautivo_radius  |    	attr_num = no
+portal_cautivo_radius  |    	raw_value = no
+portal_cautivo_radius  |    	data = "{"username":"%{jsonquote:%{User-Name}}","password":"%{jsonquote:%{User-Password}}","ip_address":"%{jsonquote:%{Framed-IP-Address}}","mac_address":"%{jsonquote:%{Calling-Station-Id}}","nas_ip_address":"%{jsonquote:%{NAS-IP-Address}}","nas_identifier":"%{jsonquote:%{NAS-Identifier}}"}"
+portal_cautivo_radius  |    	force_to = "plain"
+portal_cautivo_radius  |    	auth = "none"
+portal_cautivo_radius  |    	require_auth = no
+portal_cautivo_radius  |    	timeout = 5.000000
+portal_cautivo_radius  |    	chunk = 0
+portal_cautivo_radius  |     tls {
+portal_cautivo_radius  |     	check_cert = yes
+portal_cautivo_radius  |     	check_cert_cn = yes
+portal_cautivo_radius  |     }
+portal_cautivo_radius  |    	body_uri_encode = yes
+portal_cautivo_radius  |    }
+portal_cautivo_radius  | rlm_rest: libcurl version: libcurl/7.81.0 OpenSSL/3.0.2 zlib/1.2.11 brotli/1.0.9 zstd/1.4.8 libidn2/2.3.2 libpsl/0.21.0 (+libidn2/2.3.2) libssh/0.9.6/openssl/zlib nghttp2/1.43.0 librtmp/2.3 OpenLDAP/2.5.20
+portal_cautivo_radius  | rlm_rest (rest): Initialising connection pool
+portal_cautivo_radius  |    pool {
+portal_cautivo_radius  |    	start = 0
+portal_cautivo_radius  |    	min = 0
+portal_cautivo_radius  |    	max = 10
+portal_cautivo_radius  |    	spare = 0
+portal_cautivo_radius  |    	uses = 0
+portal_cautivo_radius  |    	lifetime = 0
+portal_cautivo_radius  |    	cleanup_interval = 30
+portal_cautivo_radius  |    	idle_timeout = 60
+portal_cautivo_radius  |    	retry_delay = 5
+portal_cautivo_radius  |    	max_retries = 5
+portal_cautivo_radius  |    	spread = no
+portal_cautivo_radius  |    }
+portal_cautivo_radius  |  } # modules
+portal_cautivo_radius  | radiusd: #### Loading Virtual Servers ####
+portal_cautivo_radius  | server { # from file /etc/freeradius/radiusd.conf
+portal_cautivo_radius  | } # server
+portal_cautivo_radius  | server inner-tunnel { # from file /etc/freeradius/sites-enabled/inner-tunnel
+portal_cautivo_radius  |  # Loading authenticate {...}
+portal_cautivo_radius  | Compiling Auth-Type PAP for attr Auth-Type
+portal_cautivo_radius  | Compiling Auth-Type CHAP for attr Auth-Type
+portal_cautivo_radius  | Compiling Auth-Type MS-CHAP for attr Auth-Type
+portal_cautivo_radius  |  # Loading authorize {...}
+portal_cautivo_radius  | Ignoring "sql" (see raddb/mods-available/README.rst)
+portal_cautivo_radius  | Ignoring "ldap" (see raddb/mods-available/README.rst)
+portal_cautivo_radius  |  # Loading post-auth {...}
+portal_cautivo_radius  |  # Skipping contents of 'if' as it is always 'false' -- /etc/freeradius/sites-enabled/inner-tunnel:366
+portal_cautivo_radius  | Compiling Post-Auth-Type REJECT for attr Post-Auth-Type
+portal_cautivo_radius  | } # server inner-tunnel
+portal_cautivo_radius  | server portal { # from file /etc/freeradius/sites-enabled/portal
+portal_cautivo_radius  |  # Loading authenticate {...}
+portal_cautivo_radius  | Compiling Auth-Type REST for attr Auth-Type
+portal_cautivo_radius  |  # Loading authorize {...}
+portal_cautivo_radius  |  # Loading preacct {...}
+portal_cautivo_radius  |  # Loading accounting {...}
+portal_cautivo_radius  | } # server portal
+portal_cautivo_radius  | radiusd: #### Opening IP addresses and Ports ####
+portal_cautivo_radius  | listen {
+portal_cautivo_radius  |   	type = "auth"
+portal_cautivo_radius  |   	ipaddr = 127.0.0.1
+portal_cautivo_radius  |   	port = 18120
+portal_cautivo_radius  | }
+portal_cautivo_radius  | listen {
+portal_cautivo_radius  |   	type = "auth"
+portal_cautivo_radius  |   	ipaddr = *
+portal_cautivo_radius  |   	port = 1812
+portal_cautivo_radius  | }
+portal_cautivo_radius  | listen {
+portal_cautivo_radius  |   	type = "acct"
+portal_cautivo_radius  |   	ipaddr = *
+portal_cautivo_radius  |   	port = 1813
+portal_cautivo_radius  | }
+portal_cautivo_radius  | Listening on auth address 127.0.0.1 port 18120 bound to server inner-tunnel
+portal_cautivo_radius  | Listening on auth address * port 1812 bound to server portal
+portal_cautivo_radius  | Listening on acct address * port 1813 bound to server portal
+portal_cautivo_radius  | Listening on proxy address * port 34805
+portal_cautivo_radius  | All secret information will be replaced with the string '<<secret>>'
+portal_cautivo_radius  | To see the contents of passwords, set `suppress_secrets=no` in the main configuration file.
+portal_cautivo_radius  | Ready to process requests
+portal_cautivo_radius  | !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+portal_cautivo_radius  | BlastRADIUS check: Received packet with Message-Authenticator.
+portal_cautivo_radius  | Setting "require_message_authenticator = true" for client portal-lab
+portal_cautivo_radius  | !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+portal_cautivo_radius  | It looks like the client has been updated to protect from the BlastRADIUS attack.
+portal_cautivo_radius  | Please set "require_message_authenticator = true" for client portal-lab
+portal_cautivo_radius  | !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+portal_cautivo_radius  | (0) Received Access-Request Id 86 from 127.0.0.1:55562 to 127.0.0.1:1812 length 81
+portal_cautivo_radius  | (0)   Message-Authenticator = 0x2dbcea98eb195ec82457df7e68daa53c
+portal_cautivo_radius  | (0)   User-Name = "cafeteria01"
+portal_cautivo_radius  | (0)   User-Password = <<< secret >>>
+portal_cautivo_radius  | (0)   NAS-IP-Address = 172.18.0.4
+portal_cautivo_radius  | (0)   NAS-Port = 0
+portal_cautivo_radius  | (0) # Executing section authorize from file /etc/freeradius/sites-enabled/portal
+portal_cautivo_radius  | (0)   authorize {
+portal_cautivo_radius  | (0)     if (!&User-Name) {
+portal_cautivo_radius  | (0)     if (!&User-Name)  -> FALSE
+portal_cautivo_radius  | (0)     if (!&User-Password) {
+portal_cautivo_radius  | (0)     if (!&User-Password)  -> FALSE
+portal_cautivo_radius  | (0)     update control {
+portal_cautivo_radius  | (0)       &REST-HTTP-Header := "X-Radius-Token: 9gVSnRqh0FstxMHiwrLglYV5E9Eb4fydmxoY32MbGB4="
+portal_cautivo_radius  | (0)       &Auth-Type := REST
+portal_cautivo_radius  | (0)     } # update control = noop
+portal_cautivo_radius  | (0)   } # authorize = noop
+portal_cautivo_radius  | (0) Found Auth-Type = REST
+portal_cautivo_radius  | (0) # Executing group from file /etc/freeradius/sites-enabled/portal
+portal_cautivo_radius  | (0)   Auth-Type REST {
+portal_cautivo_radius  | rlm_rest (rest): 0 of 0 connections in use.  You  may need to increase "spare"
+portal_cautivo_radius  | rlm_rest (rest): Opening additional connection (0), 1 of 10 pending slots used
+portal_cautivo_radius  | rlm_rest (rest): Skipping pre-connect, connect_uri not specified
+portal_cautivo_radius  | rlm_rest (rest): Reserved connection (0)
+portal_cautivo_radius  | (0) rest: Expanding URI components
+portal_cautivo_radius  | (0) rest: EXPAND http://app
+portal_cautivo_radius  | (0) rest:    --> http://app
+portal_cautivo_radius  | (0) rest: EXPAND /api/internal/radius/authenticate
+portal_cautivo_radius  | (0) rest:    --> /api/internal/radius/authenticate
+portal_cautivo_radius  | (0) rest: Sending HTTP POST to "http://app/api/internal/radius/authenticate"
+portal_cautivo_radius  | (0) rest: EXPAND {"username":"%{jsonquote:%{User-Name}}","password":"%{jsonquote:%{User-Password}}","ip_address":"%{jsonquote:%{Framed-IP-Address}}","mac_address":"%{jsonquote:%{Calling-Station-Id}}","nas_ip_address":"%{jsonquote:%{NAS-IP-Address}}","nas_identifier":"%{jsonquote:%{NAS-Identifier}}"}
+portal_cautivo_radius  | (0) rest:    --> {"username":"cafeteria01","password":"Prueba2026!","ip_address":"","mac_address":"","nas_ip_address":"172.18.0.4","nas_identifier":""}
+portal_cautivo_radius  | (0) rest: ERROR: Request failed: 28 - Timeout was reached
+portal_cautivo_radius  | (0) rest: ERROR: Server returned no data
+portal_cautivo_radius  | rlm_rest (rest): Released connection (0)
+portal_cautivo_radius  | (0)     [rest] = fail
+portal_cautivo_radius  | (0)   } # Auth-Type REST = fail
+portal_cautivo_radius  | (0) Failed to authenticate the user
+portal_cautivo_radius  | (0) Using Post-Auth-Type Reject
+portal_cautivo_radius  | (0) Post-Auth-Type sub-section not found.  Ignoring.
+portal_cautivo_radius  | (0) Sent Access-Reject Id 86 from 127.0.0.1:1812 to 127.0.0.1:55562 length 38
+portal_cautivo_radius  | (0) Finished request
+portal_cautivo_radius  | Waking up in 4.9 seconds.
+portal_cautivo_radius  | (0) Cleaning up request packet ID 86 with timestamp +19 due to cleanup_delay was reached
+portal_cautivo_radius  | Ready to process requests
