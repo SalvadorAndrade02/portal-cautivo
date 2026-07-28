@@ -7,9 +7,12 @@ use App\Http\Controllers\Panel\PlanController;
 use App\Http\Controllers\Panel\PortalUserController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Panel\DeviceController;
+use App\Http\Controllers\Panel\AccessAttemptController;
+use App\Http\Controllers\Panel\AccessSessionController;
+use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
-    return auth()->check()
+    return Auth::check()
         ? to_route('panel.dashboard')
         : to_route('login');
 });
@@ -76,4 +79,13 @@ Route::middleware('auth')
                 'dispositivos' => 'device',
             ])
             ->except('show');
+        Route::get(
+            'intentos-acceso',
+            [AccessAttemptController::class, 'index']
+        )->name('intentos.index');
+
+        Route::get(
+            'sesiones',
+            [AccessSessionController::class, 'index']
+        )->name('sesiones.index');
     });

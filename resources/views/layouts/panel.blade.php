@@ -401,6 +401,23 @@
                     align-items: stretch;
                 }
             }
+
+            .filters-access {
+                grid-template-columns:
+                    minmax(220px, 2fr) minmax(180px, 1fr) minmax(130px, 1fr) minmax(140px, 1fr) minmax(140px, 1fr) auto;
+            }
+
+            @media (max-width: 1100px) {
+                .filters-access {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+            }
+
+            @media (max-width: 650px) {
+                .filters-access {
+                    grid-template-columns: 1fr;
+                }
+            }
         }
     </style>
 </head>
@@ -426,6 +443,14 @@
 
                     <a href="{{ route('panel.usuarios.index') }}">
                         Usuarios
+                    </a>
+
+                    <a href="{{ route('panel.sesiones.index') }}">
+                        Sesiones
+                    </a>
+
+                    <a href="{{ route('panel.intentos.index') }}">
+                        Intentos
                     </a>
                 </nav>
             </div>

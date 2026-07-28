@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Device extends Model
 {
@@ -46,5 +47,15 @@ class Device extends Model
     public function portalUser(): BelongsTo
     {
         return $this->belongsTo(PortalUser::class);
+    }
+
+    public function accessAttempts(): HasMany
+    {
+        return $this->hasMany(AccessAttempt::class);
+    }
+
+    public function accessSessions(): HasMany
+    {
+        return $this->hasMany(AccessSession::class);
     }
 }

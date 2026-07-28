@@ -41,4 +41,14 @@ class PortalUser extends Model
     {
         return $this->hasMany(Device::class);
     }
+
+    public function accessAttempts(): HasMany
+    {
+        return $this->hasMany(AccessAttempt::class);
+    }
+
+    public function accessSessions(): HasMany
+    {
+        return $this->hasMany(AccessSession::class);
+    }
 }
