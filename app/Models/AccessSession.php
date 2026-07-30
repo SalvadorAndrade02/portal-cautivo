@@ -29,6 +29,8 @@ class AccessSession extends Model
         'termination_reason',
         'status',
         'metadata',
+        'visitor_id',
+        'access_type',
     ];
 
     protected function casts(): array
@@ -44,6 +46,7 @@ class AccessSession extends Model
             'input_bytes' => 'integer',
             'output_bytes' => 'integer',
             'metadata' => 'array',
+            'visitor_id' => 'integer',
         ];
     }
 
@@ -60,5 +63,10 @@ class AccessSession extends Model
     public function device(): BelongsTo
     {
         return $this->belongsTo(Device::class);
+    }
+
+    public function visitor(): BelongsTo
+    {
+        return $this->belongsTo(Visitor::class);
     }
 }

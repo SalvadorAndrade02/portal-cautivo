@@ -10,12 +10,35 @@ use App\Http\Controllers\Panel\DeviceController;
 use App\Http\Controllers\Panel\AccessAttemptController;
 use App\Http\Controllers\Panel\AccessSessionController;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\Public\VisitorRegistrationController;
 
 Route::get('/', function () {
     return Auth::check()
         ? to_route('panel.dashboard')
         : to_route('login');
 });
+
+Route::controller(VisitorRegistrationController::class)
+    ->prefix('wifi')
+    ->name('wifi.')
+    ->group(function (): void {
+        Route::get(
+            'registro',
+            'create'
+        )->name('register.create');
+
+        Route::post(
+            'registro',
+            'store'
+        )
+            ->middleware('throttle:5,1')
+            ->name('register.store');
+
+        Route::get(
+            'registro/exito',
+            'success'
+        )->name('register.success');
+    });
 
 Route::get(
     '/login',

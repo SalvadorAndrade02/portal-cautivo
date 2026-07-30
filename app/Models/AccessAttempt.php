@@ -22,6 +22,8 @@ class AccessAttempt extends Model
         'source',
         'metadata',
         'attempted_at',
+        'visitor_id',
+        'access_type',
     ];
 
     protected function casts(): array
@@ -32,6 +34,7 @@ class AccessAttempt extends Model
             'device_id' => 'integer',
             'metadata' => 'array',
             'attempted_at' => 'datetime',
+            'visitor_id' => 'integer',
         ];
     }
 
@@ -48,5 +51,10 @@ class AccessAttempt extends Model
     public function device(): BelongsTo
     {
         return $this->belongsTo(Device::class);
+    }
+
+    public function visitor(): BelongsTo
+    {
+        return $this->belongsTo(Visitor::class);
     }
 }

@@ -24,6 +24,7 @@ class Device extends Model
         'first_seen_at',
         'last_seen_at',
         'notes',
+        'visitor_id',
     ];
 
     protected function casts(): array
@@ -36,6 +37,7 @@ class Device extends Model
             'bypass_portal' => 'boolean',
             'first_seen_at' => 'datetime',
             'last_seen_at' => 'datetime',
+            'visitor_id' => 'integer',
         ];
     }
 
@@ -57,5 +59,10 @@ class Device extends Model
     public function accessSessions(): HasMany
     {
         return $this->hasMany(AccessSession::class);
+    }
+
+    public function visitor(): BelongsTo
+    {
+        return $this->belongsTo(Visitor::class);
     }
 }
