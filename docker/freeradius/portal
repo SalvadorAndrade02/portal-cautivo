@@ -37,6 +37,10 @@ server portal {
     }
 
     accounting {
-        ok
+    update control {
+        &REST-HTTP-Header := "X-Radius-Token: $ENV{RADIUS_API_TOKEN}"
     }
+
+    rest
+}
 }

@@ -20,11 +20,13 @@ class AccessSessionController extends Controller
                 'string',
                 'max:100',
             ],
+
             'business_id' => [
                 'nullable',
                 'integer',
                 Rule::exists('businesses', 'id'),
             ],
+
             'status' => [
                 'nullable',
                 Rule::in([

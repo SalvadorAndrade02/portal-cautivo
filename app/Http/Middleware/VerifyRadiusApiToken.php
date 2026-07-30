@@ -23,7 +23,10 @@ class VerifyRadiusApiToken
         if (
             $configuredToken === ''
             || $providedToken === ''
-            || !hash_equals($configuredToken, $providedToken)
+            || !hash_equals(
+                $configuredToken,
+                $providedToken
+            )
         ) {
             return response()->json([
                 'authorized' => false,

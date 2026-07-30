@@ -79,8 +79,9 @@ Route::middleware('auth')
                 'dispositivos' => 'device',
             ])
             ->except('show');
+
         Route::get(
-            'intentos-acceso',
+            'intentos',
             [AccessAttemptController::class, 'index']
         )->name('intentos.index');
 

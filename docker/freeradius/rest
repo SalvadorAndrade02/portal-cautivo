@@ -12,6 +12,19 @@ rest {
         timeout = 15
     }
 
+    accounting {
+        uri = "http://app/api/internal/radius/accounting"
+
+        method = "post"
+        body = "json"
+
+        data = '{"status_type":"%{jsonquote:%{Acct-Status-Type}}","session_id":"%{jsonquote:%{Acct-Session-Id}}","username":"%{jsonquote:%{User-Name}}","ip_address":"%{jsonquote:%{Framed-IP-Address}}","mac_address":"%{jsonquote:%{Calling-Station-Id}}","nas_ip_address":"%{jsonquote:%{NAS-IP-Address}}","nas_identifier":"%{jsonquote:%{NAS-Identifier}}","session_time":"%{jsonquote:%{Acct-Session-Time}}","input_octets":"%{jsonquote:%{Acct-Input-Octets}}","output_octets":"%{jsonquote:%{Acct-Output-Octets}}","input_gigawords":"%{jsonquote:%{Acct-Input-Gigawords}}","output_gigawords":"%{jsonquote:%{Acct-Output-Gigawords}}","termination_reason":"%{jsonquote:%{Acct-Terminate-Cause}}","called_station_id":"%{jsonquote:%{Called-Station-Id}}","nas_port":"%{jsonquote:%{NAS-Port}}"}'
+
+        force_to = "plain"
+        auth = "none"
+        timeout = 15
+    }
+
     pool {
         start = 1
         min = 1
