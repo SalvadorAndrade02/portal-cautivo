@@ -452,6 +452,10 @@
                     <a href="{{ route('panel.intentos.index') }}">
                         Intentos
                     </a>
+
+                    <a href="{{ route('panel.visitantes.index') }}">
+                        Visitantes
+                    </a>
                 </nav>
             </div>
 

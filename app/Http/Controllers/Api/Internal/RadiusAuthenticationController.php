@@ -13,6 +13,8 @@ use App\Models\VisitorAccessToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Hash;
+use App\Models\AccessSession;
+use Illuminate\Support\Facades\DB;
 
 class RadiusAuthenticationController extends Controller
 {
@@ -367,126 +369,27 @@ class RadiusAuthenticationController extends Controller
             );
         }
 
-        $incomingDevice = $this->findDevice(
-            $data['mac_address'] ?? null
+        $deviceResolution = $this->resolveVisitorDevice(
+            data: $data,
+            visitor: $visitor,
+            accessToken: $accessToken
         );
 
-        $tokenDevice = $accessToken->device;
-
-        if (
-            $incomingDevice
-            && $tokenDevice
-            && $incomingDevice->id !== $tokenDevice->id
-        ) {
-            return $this->reject(
-                data: $data,
-                reason: 'visitor_token_device_mismatch',
-                accessType: 'visitor_registration',
-                portalUser: null,
-                visitor: $visitor,
-                business: null,
-                device: $incomingDevice,
-                visitorAccessToken: $accessToken
-            );
+        if ($deviceResolution instanceof JsonResponse) {
+            return $deviceResolution;
         }
 
-        $device = $incomingDevice ?? $tokenDevice;
+        $device = $deviceResolution['device'];
 
-        if ($device) {
-            if (
-                $device->business_id
-                || $device->portal_user_id
-            ) {
-                return $this->reject(
-                    data: $data,
-                    reason: 'device_assigned_to_business',
-                    accessType: 'visitor_registration',
-                    portalUser: null,
-                    visitor: $visitor,
-                    business: $device->business,
-                    device: $device,
-                    visitorAccessToken: $accessToken
-                );
-            }
+        $deviceReassigned =
+            $deviceResolution['reassigned'];
 
-            if (
-                $device->visitor_id
-                && $device->visitor_id !== $visitor->id
-            ) {
-                return $this->reject(
-                    data: $data,
-                    reason: 'device_assigned_to_other_visitor',
-                    accessType: 'visitor_registration',
-                    portalUser: null,
-                    visitor: $visitor,
-                    business: null,
-                    device: $device,
-                    visitorAccessToken: $accessToken
-                );
-            }
-
-            if ($device->blocked) {
-                return $this->reject(
-                    data: $data,
-                    reason: 'device_blocked',
-                    accessType: 'visitor_registration',
-                    portalUser: null,
-                    visitor: $visitor,
-                    business: null,
-                    device: $device,
-                    visitorAccessToken: $accessToken
-                );
-            }
-
-            if (
-                $device->visitor_id === $visitor->id
-                && !$device->authorized
-            ) {
-                return $this->reject(
-                    data: $data,
-                    reason: 'device_not_authorized',
-                    accessType: 'visitor_registration',
-                    portalUser: null,
-                    visitor: $visitor,
-                    business: null,
-                    device: $device,
-                    visitorAccessToken: $accessToken
-                );
-            }
-
-            if (!$device->visitor_id) {
-                $device->update([
-                    'visitor_id' => $visitor->id,
-                    'authorized' => true,
-                    'blocked' => false,
-                ]);
-            }
-        }
-
-        if (
-            !$device
-            && !empty($data['mac_address'])
-        ) {
-            $device = $this->createVisitorDevice(
-                data: $data,
-                visitor: $visitor
-            );
-        }
-
-        if ($device) {
-            $device->update([
-                'visitor_id' => $visitor->id,
-                'last_ip_address' => $data['ip_address']
-                    ?? $device->last_ip_address,
-                'last_seen_at' => now(),
-                'first_seen_at' => $device->first_seen_at
-                    ?? now(),
-            ]);
-        }
+        $previousVisitorId =
+            $deviceResolution['previous_visitor_id'];
 
         $accessToken->update([
-            'device_id' => $accessToken->device_id
-                ?? $device?->id,
+            'device_id' => $device?->id
+                ?? $accessToken->device_id,
 
             'used_at' => $accessToken->used_at
                 ?? now(),
@@ -494,23 +397,304 @@ class RadiusAuthenticationController extends Controller
             'last_used_at' => now(),
         ]);
 
-        $visitor->update([
-            'last_access_at' => now(),
-        ]);
-
         $this->recordAttempt(
             data: $data,
             result: 'accepted',
-            reason: 'visitor_credentials_valid',
+
+            reason: $deviceReassigned
+                ? 'visitor_credentials_valid_device_reassigned'
+                : 'visitor_credentials_valid',
+
             accessType: 'visitor_registration',
             portalUser: null,
             visitor: $visitor,
             business: null,
             device: $device,
-            visitorAccessToken: $accessToken
+            visitorAccessToken: $accessToken,
+
+            extraMetadata: [
+                'device_reassigned' =>
+                $deviceReassigned,
+
+                'previous_visitor_id' =>
+                $previousVisitorId,
+            ]
         );
 
         return response()->noContent();
+    }
+
+    private function resolveVisitorDevice(
+        array $data,
+        Visitor $visitor,
+        VisitorAccessToken $accessToken
+    ): array|JsonResponse {
+        return DB::transaction(
+            function () use (
+                $data,
+                $visitor,
+                $accessToken
+            ): array|JsonResponse {
+                $incomingDevice = null;
+
+                if (!empty($data['mac_address'])) {
+                    $incomingDevice = Device::query()
+                        ->with('business')
+                        ->where(
+                            'mac_address',
+                            $data['mac_address']
+                        )
+                        ->lockForUpdate()
+                        ->first();
+                }
+
+                $tokenDevice = null;
+
+                if ($accessToken->device_id) {
+                    $tokenDevice = Device::query()
+                        ->with('business')
+                        ->whereKey(
+                            $accessToken->device_id
+                        )
+                        ->lockForUpdate()
+                        ->first();
+                }
+
+                /*
+             * La credencial ya estaba ligada a otro
+             * dispositivo diferente al que llega ahora.
+             */
+                if (
+                    $incomingDevice
+                    && $tokenDevice
+                    && $incomingDevice->id
+                    !== $tokenDevice->id
+                ) {
+                    return $this->reject(
+                        data: $data,
+                        reason: 'visitor_token_device_mismatch',
+
+                        accessType: 'visitor_registration',
+
+                        portalUser: null,
+                        visitor: $visitor,
+                        business: null,
+                        device: $incomingDevice,
+
+                        visitorAccessToken: $accessToken
+                    );
+                }
+
+                $device =
+                    $incomingDevice ?? $tokenDevice;
+
+                /*
+             * La MAC todavía no existe.
+             */
+                if (
+                    !$device
+                    && !empty($data['mac_address'])
+                ) {
+                    $device = $this
+                        ->createVisitorDevice(
+                            data: $data,
+                            visitor: $visitor
+                        );
+                }
+
+                /*
+             * Puede ocurrir cuando RADIUS no entrega MAC.
+             */
+                if (!$device) {
+                    return [
+                        'device' => null,
+                        'reassigned' => false,
+                        'previous_visitor_id' => null,
+                    ];
+                }
+
+                /*
+             * Nunca se reasigna automáticamente un
+             * dispositivo perteneciente a un local.
+             */
+                if (
+                    $device->business_id
+                    || $device->portal_user_id
+                ) {
+                    return $this->reject(
+                        data: $data,
+
+                        reason: 'device_assigned_to_business',
+
+                        accessType: 'visitor_registration',
+
+                        portalUser: null,
+                        visitor: $visitor,
+                        business: $device->business,
+                        device: $device,
+
+                        visitorAccessToken: $accessToken
+                    );
+                }
+
+                /*
+             * Un bloqueo administrativo siempre gana.
+             */
+                if ($device->blocked) {
+                    return $this->reject(
+                        data: $data,
+                        reason: 'device_blocked',
+
+                        accessType: 'visitor_registration',
+
+                        portalUser: null,
+                        visitor: $visitor,
+                        business: null,
+                        device: $device,
+
+                        visitorAccessToken: $accessToken
+                    );
+                }
+
+                $reassigned = false;
+                $previousVisitorId = null;
+
+                /*
+             * La MAC pertenece a otro visitante.
+             */
+                if (
+                    $device->visitor_id
+                    && $device->visitor_id
+                    !== $visitor->id
+                ) {
+                    $hasActiveSession =
+                        AccessSession::query()
+                        ->where('status', 'active')
+                        ->whereNull('ended_at')
+                        ->where(
+                            function ($query) use (
+                                $device
+                            ): void {
+                                $query
+                                    ->where(
+                                        'device_id',
+                                        $device->id
+                                    )
+                                    ->orWhere(
+                                        'mac_address',
+                                        $device->mac_address
+                                    );
+                            }
+                        )
+                        ->exists();
+
+                    /*
+                 * No permitimos quitarle el dispositivo
+                 * a alguien que sigue conectado.
+                 */
+                    if ($hasActiveSession) {
+                        return $this->reject(
+                            data: $data,
+
+                            reason: 'device_active_for_other_visitor',
+
+                            accessType: 'visitor_registration',
+
+                            portalUser: null,
+                            visitor: $visitor,
+                            business: null,
+                            device: $device,
+
+                            visitorAccessToken: $accessToken
+                        );
+                    }
+
+                    $previousVisitorId =
+                        $device->visitor_id;
+
+                    /*
+                 * Las credenciales anteriores ligadas
+                 * a este dispositivo dejan de funcionar.
+                 */
+                    VisitorAccessToken::query()
+                        ->where(
+                            'visitor_id',
+                            $previousVisitorId
+                        )
+                        ->where(
+                            'device_id',
+                            $device->id
+                        )
+                        ->where('status', 'active')
+                        ->whereNull('revoked_at')
+                        ->update([
+                            'status' => 'revoked',
+                            'revoked_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+
+                    $device->update([
+                        'visitor_id' => $visitor->id,
+                        'authorized' => true,
+                        'blocked' => false,
+                    ]);
+
+                    $reassigned = true;
+                } elseif (
+                    $device->visitor_id === $visitor->id
+                    && !$device->authorized
+                ) {
+                    /*
+                 * El administrador desautorizó
+                 * explícitamente el dispositivo.
+                 */
+                    return $this->reject(
+                        data: $data,
+
+                        reason: 'device_not_authorized',
+
+                        accessType: 'visitor_registration',
+
+                        portalUser: null,
+                        visitor: $visitor,
+                        business: null,
+                        device: $device,
+
+                        visitorAccessToken: $accessToken
+                    );
+                } elseif (!$device->visitor_id) {
+                    /*
+                 * El dispositivo existe, pero está libre.
+                 */
+                    $device->update([
+                        'visitor_id' => $visitor->id,
+                        'authorized' => true,
+                        'blocked' => false,
+                    ]);
+                }
+
+                $device->update([
+                    'last_ip_address' =>
+                    $data['ip_address']
+                        ?? $device->last_ip_address,
+
+                    'last_seen_at' => now(),
+
+                    'first_seen_at' =>
+                    $device->first_seen_at
+                        ?? now(),
+                ]);
+
+                return [
+                    'device' => $device->fresh(),
+
+                    'reassigned' => $reassigned,
+
+                    'previous_visitor_id' =>
+                    $previousVisitorId,
+                ];
+            }
+        );
     }
 
     private function reject(
@@ -550,7 +734,8 @@ class RadiusAuthenticationController extends Controller
         ?Visitor $visitor,
         ?Business $business,
         ?Device $device,
-        ?VisitorAccessToken $visitorAccessToken
+        ?VisitorAccessToken $visitorAccessToken,
+        array $extraMetadata = []
     ): void {
         AccessAttempt::create([
             'portal_user_id' => $portalUser?->id,
@@ -571,16 +756,19 @@ class RadiusAuthenticationController extends Controller
             'reason' => $reason,
             'source' => 'radius_api',
 
-            'metadata' => [
-                'nas_ip_address' =>
-                $data['nas_ip_address'] ?? null,
+            'metadata' => array_merge(
+                [
+                    'nas_ip_address' =>
+                    $data['nas_ip_address'] ?? null,
 
-                'nas_identifier' =>
-                $data['nas_identifier'] ?? null,
+                    'nas_identifier' =>
+                    $data['nas_identifier'] ?? null,
 
-                'visitor_access_token_id' =>
-                $visitorAccessToken?->id,
-            ],
+                    'visitor_access_token_id' =>
+                    $visitorAccessToken?->id,
+                ],
+                $extraMetadata
+            ),
 
             'attempted_at' => now(),
         ]);

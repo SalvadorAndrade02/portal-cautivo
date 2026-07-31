@@ -15,10 +15,11 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Illuminate\Http\Request;
 
 class VisitorRegistrationController extends Controller
 {
-    public function create(): View
+    public function create(Request $request): View
     {
         $interestAreas = InterestArea::query()
             ->where('active', true)
@@ -26,9 +27,45 @@ class VisitorRegistrationController extends Controller
             ->orderBy('name')
             ->get();
 
+        $allowedOrigins = collect(
+            config('captive_portal.allowed_origins', [])
+        )
+            ->map(
+                fn(string $origin): string =>
+                rtrim(trim($origin), '/')
+            );
+
+        $requestedOrigin = rtrim(
+            trim(
+                (string) $request->query(
+                    'portal_origin',
+                    config(
+                        'captive_portal.default_origin'
+                    )
+                )
+            ),
+            '/'
+        );
+
+        $portalOrigin = $allowedOrigins->contains(
+            $requestedOrigin
+        )
+            ? $requestedOrigin
+            : (string) config(
+                'captive_portal.default_origin'
+            );
+
+        $redirectUrl = $this->resolveRedirectUrl(
+            $request->query('redirect_url')
+        );
+
         return view(
             'wifi.register',
-            compact('interestAreas')
+            compact(
+                'interestAreas',
+                'portalOrigin',
+                'redirectUrl'
+            )
         );
     }
 
@@ -173,6 +210,7 @@ class VisitorRegistrationController extends Controller
                     ],
                 ]);
 
+
                 return [
                     'visitor_name' => $visitor->full_name,
                     'username' => $accessToken->access_username,
@@ -180,6 +218,13 @@ class VisitorRegistrationController extends Controller
                     'expires_at' => $accessToken
                         ->expires_at
                         ->toIso8601String(),
+
+                    'portal_origin' => $data['portal_origin'],
+
+                    'redirect_url' => $data['redirect_url']
+                        ?? config(
+                            'captive_portal.post_login_redirect_url'
+                        ),
                 ];
             }
         );
@@ -289,5 +334,32 @@ class VisitorRegistrationController extends Controller
         );
 
         return $username;
+    }
+
+    private function resolveRedirectUrl(
+        mixed $value
+    ): string {
+        $fallback = (string) config(
+            'captive_portal.post_login_redirect_url',
+            'http://neverssl.com'
+        );
+
+        if (!is_string($value) || trim($value) === '') {
+            return $fallback;
+        }
+
+        $url = trim($value);
+
+        if (!filter_var($url, FILTER_VALIDATE_URL)) {
+            return $fallback;
+        }
+
+        $scheme = parse_url($url, PHP_URL_SCHEME);
+
+        if (!in_array($scheme, ['http', 'https'], true)) {
+            return $fallback;
+        }
+
+        return $url;
     }
 }

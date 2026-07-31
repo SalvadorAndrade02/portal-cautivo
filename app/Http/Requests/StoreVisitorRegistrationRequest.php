@@ -50,6 +50,15 @@ class StoreVisitorRegistrationRequest extends FormRequest
             'mac_address' => $this->normalizeMac(
                 $this->input('mac_address')
             ),
+
+            'portal_origin' => rtrim(
+                trim((string) $this->input('portal_origin')),
+                '/'
+            ),
+
+            'redirect_url' => $this->filled('redirect_url')
+                ? trim((string) $this->input('redirect_url'))
+                : null,
         ]);
     }
 
@@ -130,6 +139,43 @@ class StoreVisitorRegistrationRequest extends FormRequest
             'mac_address' => [
                 'nullable',
                 'mac_address',
+            ],
+
+            'portal_origin' => [
+                'required',
+                'url',
+                Rule::in(
+                    config(
+                        'captive_portal.allowed_origins',
+                        []
+                    )
+                ),
+            ],
+
+            'redirect_url' => [
+                'nullable',
+                'url',
+                'max:2048',
+                function (
+                    string $attribute,
+                    mixed $value,
+                    \Closure $fail
+                ): void {
+                    if (!$value) {
+                        return;
+                    }
+
+                    $scheme = parse_url(
+                        (string) $value,
+                        PHP_URL_SCHEME
+                    );
+
+                    if (!in_array($scheme, ['http', 'https'], true)) {
+                        $fail(
+                            'La dirección de redirección no es válida.'
+                        );
+                    }
+                },
             ],
         ];
     }

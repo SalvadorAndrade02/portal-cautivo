@@ -168,6 +168,22 @@
                 method="POST">
                 @csrf
 
+                <input
+                    name="portal_origin"
+                    type="hidden"
+                    value="{{ old(
+                    'portal_origin',
+                    $portalOrigin
+                    ) }}">
+
+                <input
+                    name="redirect_url"
+                    type="hidden"
+                    value="{{ old(
+                    'redirect_url',
+                    $redirectUrl
+                ) }}">
+
                 <div class="field">
                     <label for="full_name">
                         Nombre completo

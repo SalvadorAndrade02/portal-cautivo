@@ -11,6 +11,7 @@ use App\Http\Controllers\Panel\AccessAttemptController;
 use App\Http\Controllers\Panel\AccessSessionController;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Public\VisitorRegistrationController;
+use App\Http\Controllers\Panel\VisitorController;
 
 Route::get('/', function () {
     return Auth::check()
@@ -112,4 +113,9 @@ Route::middleware('auth')
             'sesiones',
             [AccessSessionController::class, 'index']
         )->name('sesiones.index');
+
+        Route::get(
+            'visitantes',
+            [VisitorController::class, 'index']
+        )->name('visitantes.index');
     });
