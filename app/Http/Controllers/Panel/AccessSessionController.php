@@ -42,6 +42,7 @@ class AccessSessionController extends Controller
             ->with([
                 'business',
                 'portalUser',
+                'visitor',
                 'device',
             ])
             ->when(

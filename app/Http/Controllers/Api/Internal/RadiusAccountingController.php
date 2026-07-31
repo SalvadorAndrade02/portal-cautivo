@@ -7,7 +7,10 @@ use App\Http\Requests\RadiusAccountingRequest;
 use App\Models\AccessSession;
 use App\Models\Device;
 use App\Models\PortalUser;
+use App\Models\Visitor;
+use App\Models\VisitorAccessToken;
 use Illuminate\Http\Response;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class RadiusAccountingController extends Controller
@@ -17,22 +20,57 @@ class RadiusAccountingController extends Controller
     ): Response {
         $data = $request->validated();
 
+        /*
+         * Identificar si la sesión pertenece a un usuario
+         * permanente o a un visitante.
+         */
         $portalUser = PortalUser::query()
             ->with('business')
             ->where('username', $data['username'])
             ->first();
 
-        $device = $this->findDevice(
-            $data['mac_address'] ?? null
+        $visitorAccessToken = null;
+        $visitor = null;
+        $accessType = 'unknown';
+
+        if ($portalUser) {
+            $accessType = 'business_user';
+        } else {
+            $visitorAccessToken = VisitorAccessToken::query()
+                ->with([
+                    'visitor',
+                    'device',
+                ])
+                ->where(
+                    'access_username',
+                    $data['username']
+                )
+                ->first();
+
+            if ($visitorAccessToken) {
+                $visitor = $visitorAccessToken->visitor;
+                $accessType = 'visitor_registration';
+            }
+        }
+
+        $device = $this->resolveDevice(
+            macAddress: $data['mac_address'] ?? null,
+            visitor: $visitor,
+            accessToken: $visitorAccessToken
         );
 
-        $business = $portalUser?->business
-            ?? $device?->business;
+        /*
+         * Los visitantes no pertenecen a un local.
+         */
+        $business = $accessType === 'business_user'
+            ? ($portalUser?->business ?? $device?->business)
+            : null;
 
         $eventAt = now();
 
-        $durationSeconds = (int) (
-            $data['session_time'] ?? 0
+        $durationSeconds = max(
+            0,
+            (int) ($data['session_time'] ?? 0)
         );
 
         $inputBytes = $this->calculateBytes(
@@ -48,6 +86,9 @@ class RadiusAccountingController extends Controller
         DB::transaction(function () use (
             $data,
             $portalUser,
+            $visitor,
+            $visitorAccessToken,
+            $accessType,
             $business,
             $device,
             $eventAt,
@@ -63,16 +104,16 @@ class RadiusAccountingController extends Controller
                 ->lockForUpdate()
                 ->first();
 
+            /*
+             * Puede recibirse un Interim-Update o Stop sin que
+             * Laravel haya recibido previamente el Start.
+             */
             if (!$session) {
                 $session = new AccessSession();
 
                 $session->radius_session_id =
                     $data['session_id'];
 
-                /*
-                 * Si recibimos un Interim-Update o Stop sin Start,
-                 * calculamos una hora aproximada de inicio.
-                 */
                 $session->started_at =
                     $data['status_type'] === 'start'
                     ? $eventAt
@@ -89,6 +130,12 @@ class RadiusAccountingController extends Controller
 
                 'nas_port' =>
                 $data['nas_port'] ?? null,
+
+                'visitor_access_token_id' =>
+                $visitorAccessToken?->id,
+
+                'last_accounting_event' =>
+                $data['status_type'],
             ], function (mixed $value): bool {
                 return $value !== null && $value !== '';
             });
@@ -96,6 +143,16 @@ class RadiusAccountingController extends Controller
             $session->fill([
                 'portal_user_id' => $portalUser?->id
                     ?? $session->portal_user_id,
+
+                'visitor_id' => $visitor?->id
+                    ?? $session->visitor_id,
+
+                'access_type' => $accessType !== 'unknown'
+                    ? $accessType
+                    : (
+                        $session->access_type
+                        ?: 'unknown'
+                    ),
 
                 'business_id' => $business?->id
                     ?? $session->business_id,
@@ -123,8 +180,8 @@ class RadiusAccountingController extends Controller
             ]);
 
             /*
-             * Evitamos reducir contadores si llega un paquete atrasado
-             * o duplicado.
+             * Los paquetes UDP pueden llegar duplicados o en un
+             * orden diferente. Nunca reducimos los contadores.
              */
             $session->duration_seconds = max(
                 (int) ($session->duration_seconds ?? 0),
@@ -157,10 +214,6 @@ class RadiusAccountingController extends Controller
                     $data['termination_reason'] ?? null
                 );
             } elseif (!$session->ended_at) {
-                /*
-                 * Start e Interim-Update mantienen activa
-                 * la sesión.
-                 */
                 $session->status = 'active';
             }
 
@@ -169,16 +222,97 @@ class RadiusAccountingController extends Controller
             $this->updateDevice(
                 device: $device,
                 portalUser: $portalUser,
+                visitor: $visitor,
                 ipAddress: $data['ip_address'] ?? null,
                 eventAt: $eventAt
             );
+
+            if ($visitor) {
+                $visitor->update([
+                    'last_access_at' => $eventAt,
+                ]);
+            }
+
+            if ($visitorAccessToken) {
+                $visitorAccessToken->update([
+                    'device_id' =>
+                    $visitorAccessToken->device_id
+                        ?? $device?->id,
+
+                    'last_used_at' => $eventAt,
+                ]);
+            }
         });
 
-        /*
-         * Accounting necesita una respuesta exitosa sin contenido.
-         * Esto evita que FreeRADIUS reintente el mismo evento.
-         */
         return response()->noContent();
+    }
+
+    private function resolveDevice(
+        ?string $macAddress,
+        ?Visitor $visitor,
+        ?VisitorAccessToken $accessToken
+    ): ?Device {
+        $device = $this->findDevice($macAddress)
+            ?? $accessToken?->device;
+
+        /*
+         * Para usuarios permanentes no hacemos ninguna
+         * adecuación adicional.
+         */
+        if (!$visitor) {
+            return $device;
+        }
+
+        /*
+         * No relacionar con un visitante un dispositivo que ya
+         * pertenece a un local o a otro visitante.
+         */
+        if (
+            $device
+            && (
+                $device->business_id
+                || $device->portal_user_id
+                || (
+                    $device->visitor_id
+                    && $device->visitor_id !== $visitor->id
+                )
+            )
+        ) {
+            return null;
+        }
+
+        if (
+            !$device
+            && $macAddress
+        ) {
+            $device = $this->createVisitorDevice(
+                visitor: $visitor,
+                macAddress: $macAddress
+            );
+        }
+
+        if (
+            $device
+            && !$device->visitor_id
+        ) {
+            $device->update([
+                'visitor_id' => $visitor->id,
+                'authorized' => true,
+                'blocked' => false,
+            ]);
+        }
+
+        if (
+            $accessToken
+            && !$accessToken->device_id
+            && $device
+        ) {
+            $accessToken->update([
+                'device_id' => $device->id,
+            ]);
+        }
+
+        return $device;
     }
 
     private function findDevice(
@@ -194,11 +328,43 @@ class RadiusAccountingController extends Controller
             ->first();
     }
 
+    private function createVisitorDevice(
+        Visitor $visitor,
+        string $macAddress
+    ): Device {
+        $suffix = substr(
+            str_replace(':', '', $macAddress),
+            -4
+        );
+
+        return Device::create([
+            'business_id' => null,
+            'portal_user_id' => null,
+            'visitor_id' => $visitor->id,
+
+            'name' => 'Dispositivo visitante ' . $suffix,
+            'device_type' => 'other',
+
+            'mac_address' => $macAddress,
+
+            'authorized' => true,
+            'blocked' => false,
+            'bypass_portal' => false,
+
+            'first_seen_at' => now(),
+            'last_seen_at' => now(),
+
+            'notes' =>
+            'Registrado automáticamente mediante RADIUS Accounting.',
+        ]);
+    }
+
     private function updateDevice(
         ?Device $device,
         ?PortalUser $portalUser,
+        ?Visitor $visitor,
         ?string $ipAddress,
-        mixed $eventAt
+        Carbon $eventAt
     ): void {
         if (!$device) {
             return;
@@ -216,10 +382,21 @@ class RadiusAccountingController extends Controller
         }
 
         if (
-            !$device->portal_user_id
-            && $portalUser
+            $portalUser
+            && !$device->portal_user_id
+            && !$device->visitor_id
         ) {
-            $updates['portal_user_id'] = $portalUser->id;
+            $updates['portal_user_id'] =
+                $portalUser->id;
+        }
+
+        if (
+            $visitor
+            && !$device->visitor_id
+            && !$device->business_id
+            && !$device->portal_user_id
+        ) {
+            $updates['visitor_id'] = $visitor->id;
         }
 
         $device->update($updates);
@@ -229,8 +406,15 @@ class RadiusAccountingController extends Controller
         mixed $octets,
         mixed $gigawords
     ): int {
-        $octetsValue = max(0, (int) ($octets ?? 0));
-        $gigawordsValue = max(0, (int) ($gigawords ?? 0));
+        $octetsValue = max(
+            0,
+            (int) ($octets ?? 0)
+        );
+
+        $gigawordsValue = max(
+            0,
+            (int) ($gigawords ?? 0)
+        );
 
         return $octetsValue
             + ($gigawordsValue * 4294967296);

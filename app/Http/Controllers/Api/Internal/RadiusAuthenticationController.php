@@ -8,8 +8,10 @@ use App\Models\AccessAttempt;
 use App\Models\Business;
 use App\Models\Device;
 use App\Models\PortalUser;
-use Illuminate\Http\Response;
+use App\Models\Visitor;
+use App\Models\VisitorAccessToken;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Hash;
 
 class RadiusAuthenticationController extends Controller
@@ -19,35 +21,64 @@ class RadiusAuthenticationController extends Controller
     ): JsonResponse|Response {
         $data = $request->validated();
 
+        /*
+         * Primero buscamos usuarios permanentes de los locales.
+         */
         $portalUser = PortalUser::query()
-            ->with([
-                'business.plan',
-            ])
+            ->with('business.plan')
             ->where('username', $data['username'])
             ->first();
 
+        if ($portalUser) {
+            return $this->authenticateBusinessUser(
+                data: $data,
+                portalUser: $portalUser
+            );
+        }
+
+        /*
+         * Si no es un usuario de local, buscamos una credencial
+         * temporal generada por el registro de visitantes.
+         */
+        $visitorAccessToken = VisitorAccessToken::query()
+            ->with([
+                'visitor',
+                'device',
+            ])
+            ->where('access_username', $data['username'])
+            ->first();
+
+        if ($visitorAccessToken) {
+            return $this->authenticateVisitor(
+                data: $data,
+                accessToken: $visitorAccessToken
+            );
+        }
+
+        return $this->reject(
+            data: $data,
+            reason: 'unknown_user',
+            accessType: 'unknown',
+            portalUser: null,
+            visitor: null,
+            business: null,
+            device: $this->findDevice(
+                $data['mac_address'] ?? null
+            ),
+            visitorAccessToken: null
+        );
+    }
+
+    private function authenticateBusinessUser(
+        array $data,
+        PortalUser $portalUser
+    ): JsonResponse|Response {
         $device = $this->findDevice(
             $data['mac_address'] ?? null
         );
 
-        /*
-         * 1. Comprobar existencia del usuario.
-         */
-        if (!$portalUser) {
-            return $this->reject(
-                data: $data,
-                reason: 'unknown_user',
-                portalUser: null,
-                business: null,
-                device: $device
-            );
-        }
-
         $business = $portalUser->business;
 
-        /*
-         * 2. Comprobar la contraseña.
-         */
         if (
             !Hash::check(
                 $data['password'],
@@ -57,90 +88,106 @@ class RadiusAuthenticationController extends Controller
             return $this->reject(
                 data: $data,
                 reason: 'invalid_credentials',
+                accessType: 'business_user',
                 portalUser: $portalUser,
+                visitor: null,
                 business: $business,
-                device: $device
+                device: $device,
+                visitorAccessToken: null
             );
         }
 
-        /*
-         * 3. Comprobar el estado del usuario.
-         */
         if ($portalUser->status !== 'active') {
             return $this->reject(
                 data: $data,
                 reason: 'user_' . $portalUser->status,
+                accessType: 'business_user',
                 portalUser: $portalUser,
+                visitor: null,
                 business: $business,
-                device: $device
+                device: $device,
+                visitorAccessToken: null
             );
         }
 
-        /*
-         * 4. Comprobar que el usuario tenga local.
-         */
         if (!$business) {
             return $this->reject(
                 data: $data,
                 reason: 'business_not_found',
+                accessType: 'business_user',
                 portalUser: $portalUser,
+                visitor: null,
                 business: null,
-                device: $device
+                device: $device,
+                visitorAccessToken: null
             );
         }
 
-        /*
-         * 5. Comprobar el estado del local.
-         */
         if ($business->status !== 'active') {
             return $this->reject(
                 data: $data,
                 reason: 'business_' . $business->status,
+                accessType: 'business_user',
                 portalUser: $portalUser,
+                visitor: null,
                 business: $business,
-                device: $device
+                device: $device,
+                visitorAccessToken: null
             );
         }
 
         $plan = $business->plan;
 
-        /*
-         * 6. Comprobar que exista un plan.
-         */
         if (!$plan) {
             return $this->reject(
                 data: $data,
                 reason: 'business_without_plan',
+                accessType: 'business_user',
                 portalUser: $portalUser,
+                visitor: null,
                 business: $business,
-                device: $device
+                device: $device,
+                visitorAccessToken: null
             );
         }
 
-        /*
-         * 7. Comprobar que el plan esté activo.
-         */
         if (!$plan->active) {
             return $this->reject(
                 data: $data,
                 reason: 'plan_inactive',
+                accessType: 'business_user',
                 portalUser: $portalUser,
+                visitor: null,
                 business: $business,
-                device: $device
+                device: $device,
+                visitorAccessToken: null
             );
         }
 
-        /*
-         * 8. Validaciones relacionadas con la MAC.
-         */
         if ($device) {
+            if ($device->visitor_id) {
+                return $this->reject(
+                    data: $data,
+                    reason: 'device_assigned_to_visitor',
+                    accessType: 'business_user',
+                    portalUser: $portalUser,
+                    visitor: null,
+                    business: $business,
+                    device: $device,
+                    visitorAccessToken: null
+                );
+            }
+
             if ($device->business_id !== $business->id) {
                 return $this->reject(
                     data: $data,
                     reason: 'device_assigned_to_other_business',
+                    accessType: 'business_user',
                     portalUser: $portalUser,
+                    visitor: null,
                     business: $business,
-                    device: $device
+                    device: $device,
+                    visitorAccessToken: null
                 );
             }
 
@@ -148,9 +195,12 @@ class RadiusAuthenticationController extends Controller
                 return $this->reject(
                     data: $data,
                     reason: 'device_blocked',
+                    accessType: 'business_user',
                     portalUser: $portalUser,
+                    visitor: null,
                     business: $business,
-                    device: $device
+                    device: $device,
+                    visitorAccessToken: null
                 );
             }
 
@@ -158,16 +208,16 @@ class RadiusAuthenticationController extends Controller
                 return $this->reject(
                     data: $data,
                     reason: 'device_not_authorized',
+                    accessType: 'business_user',
                     portalUser: $portalUser,
+                    visitor: null,
                     business: $business,
-                    device: $device
+                    device: $device,
+                    visitorAccessToken: null
                 );
             }
         }
 
-        /*
-         * 9. Registrar automáticamente una MAC nueva.
-         */
         if (
             !$device
             && !empty($data['mac_address'])
@@ -184,22 +234,22 @@ class RadiusAuthenticationController extends Controller
                 return $this->reject(
                     data: $data,
                     reason: 'max_devices_reached',
+                    accessType: 'business_user',
                     portalUser: $portalUser,
+                    visitor: null,
                     business: $business,
-                    device: null
+                    device: null,
+                    visitorAccessToken: null
                 );
             }
 
-            $device = $this->createDevice(
+            $device = $this->createBusinessDevice(
                 data: $data,
                 portalUser: $portalUser,
                 business: $business
             );
         }
 
-        /*
-         * 10. Actualizar última conexión.
-         */
         if ($device) {
             $device->update([
                 'portal_user_id' => $device->portal_user_id
@@ -223,31 +273,266 @@ class RadiusAuthenticationController extends Controller
             data: $data,
             result: 'accepted',
             reason: 'credentials_valid',
+            accessType: 'business_user',
             portalUser: $portalUser,
+            visitor: null,
             business: $business,
-            device: $device
+            device: $device,
+            visitorAccessToken: null
         );
 
-        /*
-         * Laravel usa minutos, pero RADIUS utiliza segundos.
-         */
+        return response()->noContent();
+    }
+
+    private function authenticateVisitor(
+        array $data,
+        VisitorAccessToken $accessToken
+    ): JsonResponse|Response {
+        $visitor = $accessToken->visitor;
+
+        if (
+            !Hash::check(
+                $data['password'],
+                $accessToken->token_hash
+            )
+        ) {
+            return $this->reject(
+                data: $data,
+                reason: 'invalid_credentials',
+                accessType: 'visitor_registration',
+                portalUser: null,
+                visitor: $visitor,
+                business: null,
+                device: $accessToken->device,
+                visitorAccessToken: $accessToken
+            );
+        }
+
+        if (!$visitor) {
+            return $this->reject(
+                data: $data,
+                reason: 'visitor_not_found',
+                accessType: 'visitor_registration',
+                portalUser: null,
+                visitor: null,
+                business: null,
+                device: $accessToken->device,
+                visitorAccessToken: $accessToken
+            );
+        }
+
+        if ($visitor->status !== 'active') {
+            return $this->reject(
+                data: $data,
+                reason: 'visitor_' . $visitor->status,
+                accessType: 'visitor_registration',
+                portalUser: null,
+                visitor: $visitor,
+                business: null,
+                device: $accessToken->device,
+                visitorAccessToken: $accessToken
+            );
+        }
+
+        if (
+            $accessToken->status !== 'active'
+            || $accessToken->revoked_at
+        ) {
+            return $this->reject(
+                data: $data,
+                reason: 'visitor_token_' . $accessToken->status,
+                accessType: 'visitor_registration',
+                portalUser: null,
+                visitor: $visitor,
+                business: null,
+                device: $accessToken->device,
+                visitorAccessToken: $accessToken
+            );
+        }
+
+        if ($accessToken->expires_at->isPast()) {
+            $accessToken->update([
+                'status' => 'expired',
+            ]);
+
+            return $this->reject(
+                data: $data,
+                reason: 'visitor_token_expired',
+                accessType: 'visitor_registration',
+                portalUser: null,
+                visitor: $visitor,
+                business: null,
+                device: $accessToken->device,
+                visitorAccessToken: $accessToken
+            );
+        }
+
+        $incomingDevice = $this->findDevice(
+            $data['mac_address'] ?? null
+        );
+
+        $tokenDevice = $accessToken->device;
+
+        if (
+            $incomingDevice
+            && $tokenDevice
+            && $incomingDevice->id !== $tokenDevice->id
+        ) {
+            return $this->reject(
+                data: $data,
+                reason: 'visitor_token_device_mismatch',
+                accessType: 'visitor_registration',
+                portalUser: null,
+                visitor: $visitor,
+                business: null,
+                device: $incomingDevice,
+                visitorAccessToken: $accessToken
+            );
+        }
+
+        $device = $incomingDevice ?? $tokenDevice;
+
+        if ($device) {
+            if (
+                $device->business_id
+                || $device->portal_user_id
+            ) {
+                return $this->reject(
+                    data: $data,
+                    reason: 'device_assigned_to_business',
+                    accessType: 'visitor_registration',
+                    portalUser: null,
+                    visitor: $visitor,
+                    business: $device->business,
+                    device: $device,
+                    visitorAccessToken: $accessToken
+                );
+            }
+
+            if (
+                $device->visitor_id
+                && $device->visitor_id !== $visitor->id
+            ) {
+                return $this->reject(
+                    data: $data,
+                    reason: 'device_assigned_to_other_visitor',
+                    accessType: 'visitor_registration',
+                    portalUser: null,
+                    visitor: $visitor,
+                    business: null,
+                    device: $device,
+                    visitorAccessToken: $accessToken
+                );
+            }
+
+            if ($device->blocked) {
+                return $this->reject(
+                    data: $data,
+                    reason: 'device_blocked',
+                    accessType: 'visitor_registration',
+                    portalUser: null,
+                    visitor: $visitor,
+                    business: null,
+                    device: $device,
+                    visitorAccessToken: $accessToken
+                );
+            }
+
+            if (
+                $device->visitor_id === $visitor->id
+                && !$device->authorized
+            ) {
+                return $this->reject(
+                    data: $data,
+                    reason: 'device_not_authorized',
+                    accessType: 'visitor_registration',
+                    portalUser: null,
+                    visitor: $visitor,
+                    business: null,
+                    device: $device,
+                    visitorAccessToken: $accessToken
+                );
+            }
+
+            if (!$device->visitor_id) {
+                $device->update([
+                    'visitor_id' => $visitor->id,
+                    'authorized' => true,
+                    'blocked' => false,
+                ]);
+            }
+        }
+
+        if (
+            !$device
+            && !empty($data['mac_address'])
+        ) {
+            $device = $this->createVisitorDevice(
+                data: $data,
+                visitor: $visitor
+            );
+        }
+
+        if ($device) {
+            $device->update([
+                'visitor_id' => $visitor->id,
+                'last_ip_address' => $data['ip_address']
+                    ?? $device->last_ip_address,
+                'last_seen_at' => now(),
+                'first_seen_at' => $device->first_seen_at
+                    ?? now(),
+            ]);
+        }
+
+        $accessToken->update([
+            'device_id' => $accessToken->device_id
+                ?? $device?->id,
+
+            'used_at' => $accessToken->used_at
+                ?? now(),
+
+            'last_used_at' => now(),
+        ]);
+
+        $visitor->update([
+            'last_access_at' => now(),
+        ]);
+
+        $this->recordAttempt(
+            data: $data,
+            result: 'accepted',
+            reason: 'visitor_credentials_valid',
+            accessType: 'visitor_registration',
+            portalUser: null,
+            visitor: $visitor,
+            business: null,
+            device: $device,
+            visitorAccessToken: $accessToken
+        );
+
         return response()->noContent();
     }
 
     private function reject(
         array $data,
         string $reason,
+        string $accessType,
         ?PortalUser $portalUser,
+        ?Visitor $visitor,
         ?Business $business,
-        ?Device $device
+        ?Device $device,
+        ?VisitorAccessToken $visitorAccessToken
     ): JsonResponse {
         $this->recordAttempt(
             data: $data,
             result: 'rejected',
             reason: $reason,
+            accessType: $accessType,
             portalUser: $portalUser,
+            visitor: $visitor,
             business: $business,
-            device: $device
+            device: $device,
+            visitorAccessToken: $visitorAccessToken
         );
 
         return response()->json([
@@ -260,15 +545,20 @@ class RadiusAuthenticationController extends Controller
         array $data,
         string $result,
         string $reason,
+        string $accessType,
         ?PortalUser $portalUser,
+        ?Visitor $visitor,
         ?Business $business,
-        ?Device $device
+        ?Device $device,
+        ?VisitorAccessToken $visitorAccessToken
     ): void {
         AccessAttempt::create([
             'portal_user_id' => $portalUser?->id,
+            'visitor_id' => $visitor?->id,
             'business_id' => $business?->id,
             'device_id' => $device?->id,
 
+            'access_type' => $accessType,
             'username' => $data['username'],
 
             'ip_address' => $data['ip_address']
@@ -287,6 +577,9 @@ class RadiusAuthenticationController extends Controller
 
                 'nas_identifier' =>
                 $data['nas_identifier'] ?? null,
+
+                'visitor_access_token_id' =>
+                $visitorAccessToken?->id,
             ],
 
             'attempted_at' => now(),
@@ -301,11 +594,12 @@ class RadiusAuthenticationController extends Controller
         }
 
         return Device::query()
+            ->with('business')
             ->where('mac_address', $macAddress)
             ->first();
     }
 
-    private function createDevice(
+    private function createBusinessDevice(
         array $data,
         PortalUser $portalUser,
         Business $business
@@ -318,6 +612,7 @@ class RadiusAuthenticationController extends Controller
         return Device::create([
             'business_id' => $business->id,
             'portal_user_id' => $portalUser->id,
+            'visitor_id' => null,
 
             'name' => 'Dispositivo detectado ' . $suffix,
             'device_type' => 'other',
@@ -335,6 +630,39 @@ class RadiusAuthenticationController extends Controller
 
             'notes' =>
             'Registrado automáticamente durante una autenticación RADIUS.',
+        ]);
+    }
+
+    private function createVisitorDevice(
+        array $data,
+        Visitor $visitor
+    ): Device {
+        $suffix = substr(
+            str_replace(':', '', $data['mac_address']),
+            -4
+        );
+
+        return Device::create([
+            'business_id' => null,
+            'portal_user_id' => null,
+            'visitor_id' => $visitor->id,
+
+            'name' => 'Dispositivo visitante ' . $suffix,
+            'device_type' => 'other',
+
+            'mac_address' => $data['mac_address'],
+            'last_ip_address' => $data['ip_address']
+                ?? null,
+
+            'authorized' => true,
+            'blocked' => false,
+            'bypass_portal' => false,
+
+            'first_seen_at' => now(),
+            'last_seen_at' => now(),
+
+            'notes' =>
+            'Registrado durante una autenticación temporal de visitante.',
         ]);
     }
 }
