@@ -567,14 +567,21 @@ class RadiusAuthenticationController extends Controller
                     && $device->visitor_id
                     !== $visitor->id
                 ) {
-                    $hasActiveSession =
-                        AccessSession::query()
+                    $staleBefore = now()->subMinutes(
+                        max(
+                            5,
+                            (int) config(
+                                'captive_portal.visitor_session_stale_minutes',
+                                15
+                            )
+                        )
+                    );
+
+                    $activeSessionQuery = AccessSession::query()
                         ->where('status', 'active')
                         ->whereNull('ended_at')
                         ->where(
-                            function ($query) use (
-                                $device
-                            ): void {
+                            function ($query) use ($device): void {
                                 $query
                                     ->where(
                                         'device_id',
@@ -585,14 +592,40 @@ class RadiusAuthenticationController extends Controller
                                         $device->mac_address
                                     );
                             }
-                        )
-                        ->exists();
+                        );
 
                     /*
-                 * No permitimos quitarle el dispositivo
-                 * a alguien que sigue conectado.
-                 */
-                    if ($hasActiveSession) {
+ * Solo consideramos realmente activa una sesión que haya
+ * recibido actividad recientemente.
+ */
+                    $recentActiveSession = (clone $activeSessionQuery)
+                        ->where(
+                            function ($query) use ($staleBefore): void {
+                                $query
+                                    ->where(
+                                        'last_update_at',
+                                        '>=',
+                                        $staleBefore
+                                    )
+                                    ->orWhere(
+                                        function ($query) use (
+                                            $staleBefore
+                                        ): void {
+                                            $query
+                                                ->whereNull('last_update_at')
+                                                ->where(
+                                                    'started_at',
+                                                    '>=',
+                                                    $staleBefore
+                                                );
+                                        }
+                                    );
+                            }
+                        )
+                        ->lockForUpdate()
+                        ->first(['id']);
+
+                    if ($recentActiveSession) {
                         return $this->reject(
                             data: $data,
 
@@ -608,6 +641,52 @@ class RadiusAuthenticationController extends Controller
                             visitorAccessToken: $accessToken
                         );
                     }
+
+                    /*
+ * Las sesiones que quedaron abiertas por un apagado,
+ * reinicio o pérdida del Accounting-Stop se cierran antes
+ * de reasignar el dispositivo.
+ */
+                    (clone $activeSessionQuery)
+                        ->where(
+                            function ($query) use ($staleBefore): void {
+                                $query
+                                    ->where(
+                                        'last_update_at',
+                                        '<',
+                                        $staleBefore
+                                    )
+                                    ->orWhere(
+                                        function ($query) use (
+                                            $staleBefore
+                                        ): void {
+                                            $query
+                                                ->whereNull('last_update_at')
+                                                ->where(
+                                                    function ($query) use (
+                                                        $staleBefore
+                                                    ): void {
+                                                        $query
+                                                            ->whereNull('started_at')
+                                                            ->orWhere(
+                                                                'started_at',
+                                                                '<',
+                                                                $staleBefore
+                                                            );
+                                                    }
+                                                );
+                                        }
+                                    );
+                            }
+                        )
+                        ->update([
+                            'status' => 'disconnected',
+                            'ended_at' => now(),
+                            'last_update_at' => now(),
+                            'termination_reason' =>
+                            'stale-session-device-reassignment',
+                            'updated_at' => now(),
+                        ]);
 
                     $previousVisitorId =
                         $device->visitor_id;

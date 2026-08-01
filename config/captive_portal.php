@@ -51,4 +51,9 @@ return [
         'CAPTIVE_PORTAL_POST_LOGIN_URL',
         'http://neverssl.com'
     ),
+
+    'visitor_session_stale_minutes' => (int) env(
+        'VISITOR_SESSION_STALE_MINUTES',
+        15
+    ),
 ];
