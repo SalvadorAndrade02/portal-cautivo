@@ -21,6 +21,7 @@ class DeviceController extends Controller
             ->with([
                 'business',
                 'portalUser',
+                'visitor',
             ])
             ->when(
                 $request->filled('search'),
@@ -42,6 +43,27 @@ class DeviceController extends Controller
                                     'last_ip_address',
                                     'like',
                                     "%{$search}%"
+                                )
+                                ->orWhereHas(
+                                    'visitor',
+                                    function (Builder $query) use ($search): void {
+                                        $query
+                                            ->where(
+                                                'full_name',
+                                                'like',
+                                                "%{$search}%"
+                                            )
+                                            ->orWhere(
+                                                'email',
+                                                'like',
+                                                "%{$search}%"
+                                            )
+                                            ->orWhere(
+                                                'phone',
+                                                'like',
+                                                "%{$search}%"
+                                            );
+                                    }
                                 );
                         }
                     );

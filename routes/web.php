@@ -118,4 +118,9 @@ Route::middleware('auth')
             'visitantes',
             [VisitorController::class, 'index']
         )->name('visitantes.index');
+
+        Route::get(
+            'visitantes/{visitor}',
+            [VisitorController::class, 'show']
+        )->name('visitantes.show');
     });

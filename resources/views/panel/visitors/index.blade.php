@@ -79,6 +79,7 @@
                 <th>Sesiones</th>
                 <th>Credenciales</th>
                 <th>Registro</th>
+                <th>Acciones</th>
             </tr>
         </thead>
 
@@ -140,10 +141,20 @@
                             ?->format('d/m/Y H:i')
                             ?? 'Sin fecha' }}
                 </td>
+                <td>
+                    <a
+                        class="button button-small"
+                        href="{{ route(
+            'panel.visitantes.show',
+            $visitor
+        ) }}">
+                        Ver detalle
+                    </a>
+                </td>
             </tr>
             @empty
             <tr>
-                <td colspan="7">
+                <td colspan="8">
                     No hay visitantes registrados.
                 </td>
             </tr>

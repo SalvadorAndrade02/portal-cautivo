@@ -328,8 +328,18 @@
             font-size: 14px;
         }
 
-        nav a:hover {
-            text-decoration: underline;
+        nav a {
+            border-radius: 7px;
+            padding: 7px 10px;
+            transition:
+                background-color .2s ease,
+                color .2s ease;
+        }
+
+        nav a:hover,
+        nav a.nav-active {
+            background: rgba(255, 255, 255, .14);
+            text-decoration: none;
         }
 
         @media (max-width: 760px) {
@@ -429,32 +439,44 @@
                 <h1>Administración del portal cautivo</h1>
 
                 <nav>
-                    <a href="{{ route('panel.dashboard') }}">
+                    <a
+                        class="{{ request()->routeIs(
+            'panel.dashboard'
+        ) ? 'nav-active' : '' }}"
+                        href="{{ route('panel.dashboard') }}">
                         Dashboard
                     </a>
 
-                    <a href="{{ route('panel.planes.index') }}">
-                        Planes
+                    <a
+                        class="{{ request()->routeIs(
+            'panel.visitantes.*'
+        ) ? 'nav-active' : '' }}"
+                        href="{{ route('panel.visitantes.index') }}">
+                        Visitantes
                     </a>
 
-                    <a href="{{ route('panel.locales.index') }}">
-                        Locales
+                    <a
+                        class="{{ request()->routeIs(
+            'panel.dispositivos.*'
+        ) ? 'nav-active' : '' }}"
+                        href="{{ route('panel.dispositivos.index') }}">
+                        Dispositivos
                     </a>
 
-                    <a href="{{ route('panel.usuarios.index') }}">
-                        Usuarios
-                    </a>
-
-                    <a href="{{ route('panel.sesiones.index') }}">
+                    <a
+                        class="{{ request()->routeIs(
+            'panel.sesiones.*'
+        ) ? 'nav-active' : '' }}"
+                        href="{{ route('panel.sesiones.index') }}">
                         Sesiones
                     </a>
 
-                    <a href="{{ route('panel.intentos.index') }}">
-                        Intentos
-                    </a>
-
-                    <a href="{{ route('panel.visitantes.index') }}">
-                        Visitantes
+                    <a
+                        class="{{ request()->routeIs(
+            'panel.intentos.*'
+        ) ? 'nav-active' : '' }}"
+                        href="{{ route('panel.intentos.index') }}">
+                        Intentos de acceso
                     </a>
                 </nav>
             </div>

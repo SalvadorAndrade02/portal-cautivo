@@ -117,8 +117,8 @@
         <thead>
             <tr>
                 <th>Dispositivo</th>
-                <th>Local</th>
-                <th>Usuario</th>
+                <th>Asignación</th>
+                <th>Responsable</th>
                 <th>MAC / IP</th>
                 <th>Acceso</th>
                 <th>Última conexión</th>
@@ -136,14 +136,57 @@
                 </td>
 
                 <td>
-                    {{ $device->business->local_number }}
+                    @if ($device->visitor)
+                    <span class="badge badge-active">
+                        Visitante
+                    </span>
+
                     <br>
-                    <small>{{ $device->business->name }}</small>
+
+                    <small>
+                        Registro del portal cautivo
+                    </small>
+                    @elseif ($device->business)
+                    <strong>
+                        Local {{ $device->business->local_number }}
+                    </strong>
+
+                    <br>
+
+                    <small>
+                        {{ $device->business->name }}
+                    </small>
+                    @else
+                    <span class="badge badge-inactive">
+                        Sin asignar
+                    </span>
+                    @endif
                 </td>
 
                 <td>
-                    {{ $device->portalUser?->username
-                            ?? 'Sin usuario' }}
+                    @if ($device->visitor)
+                    <strong>
+                        {{ $device->visitor->full_name }}
+                    </strong>
+
+                    <br>
+
+                    <small>
+                        {{ $device->visitor->email }}
+                    </small>
+
+                    <br>
+
+                    <small>
+                        {{ $device->visitor->phone }}
+                    </small>
+                    @elseif ($device->portalUser)
+                    <strong>
+                        {{ $device->portalUser->username }}
+                    </strong>
+                    @else
+                    <small>Sin responsable</small>
+                    @endif
                 </td>
 
                 <td>

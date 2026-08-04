@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Panel;
 
 use App\Http\Controllers\Controller;
-use App\Models\Business;
-use App\Models\Plan;
-use App\Models\PortalUser;
+use App\Models\AccessAttempt;
+use App\Models\AccessSession;
+use App\Models\Visitor;
+use App\Models\VisitorConsent;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -13,59 +15,124 @@ class DashboardController extends Controller
     public function __invoke(): View
     {
         $stats = [
-            'plans' => Plan::count(),
+            'total_visitors' => Visitor::query()->count(),
 
-            'active_plans' => Plan::query()
-                ->where('active', true)
+            'visitors_today' => Visitor::query()
+                ->whereDate('registered_at', today())
                 ->count(),
 
-            'businesses' => Business::count(),
-
-            'active_businesses' => Business::query()
+            'active_visitors' => Visitor::query()
                 ->where('status', 'active')
                 ->count(),
 
-            'suspended_businesses' => Business::query()
-                ->where('status', 'suspended')
+            'blocked_visitors' => Visitor::query()
+                ->where('status', 'blocked')
                 ->count(),
 
-            'portal_users' => PortalUser::count(),
-
-            'active_portal_users' => PortalUser::query()
+            'active_sessions' => AccessSession::query()
+                ->where('access_type', 'visitor_registration')
                 ->where('status', 'active')
+                ->whereNull('ended_at')
                 ->count(),
+
+            'sessions_today' => AccessSession::query()
+                ->where('access_type', 'visitor_registration')
+                ->whereDate('started_at', today())
+                ->count(),
+
+            'accepted_today' => AccessAttempt::query()
+                ->where('access_type', 'visitor_registration')
+                ->where('result', 'accepted')
+                ->whereDate('attempted_at', today())
+                ->count(),
+
+            'marketing_consents' => VisitorConsent::query()
+                ->where('marketing_consent', true)
+                ->distinct()
+                ->count('visitor_id'),
         ];
 
-        $alerts = [
-            'businesses_without_plan' => Business::query()
-                ->whereNull('plan_id')
-                ->count(),
+        $averageSessionSeconds = (int) round(
+            AccessSession::query()
+                ->where('access_type', 'visitor_registration')
+                ->whereNotNull('duration_seconds')
+                ->where('duration_seconds', '>', 0)
+                ->avg('duration_seconds') ?? 0
+        );
 
-            'users_with_inactive_business' => PortalUser::query()
-                ->whereHas(
-                    'business',
-                    fn($query) => $query->where(
-                        'status',
-                        '!=',
-                        'active'
-                    )
-                )
-                ->count(),
+        $stats['average_session_minutes'] = $averageSessionSeconds > 0
+            ? (int) round($averageSessionSeconds / 60)
+            : 0;
 
-            'businesses_with_inactive_plan' => Business::query()
-                ->whereHas(
-                    'plan',
-                    fn($query) => $query->where(
-                        'active',
-                        false
-                    )
-                )
-                ->count(),
-        ];
+        $recentVisitors = Visitor::query()
+            ->with([
+                'interestAreas:id,name',
+            ])
+            ->withCount([
+                'devices',
+                'accessSessions',
+            ])
+            ->orderByDesc('registered_at')
+            ->limit(6)
+            ->get();
+
+        $recentSessions = AccessSession::query()
+            ->with([
+                'visitor:id,full_name,email,phone',
+                'device:id,name,mac_address',
+            ])
+            ->where('access_type', 'visitor_registration')
+            ->orderByDesc('started_at')
+            ->limit(6)
+            ->get();
+
+        $registrationsByDay = $this->registrationsByDay();
+
+        $maximumDailyRegistrations = max(
+            1,
+            (int) $registrationsByDay->max('total')
+        );
 
         return view(
             'panel.dashboard',
-            compact('stats', 'alerts')
+            compact(
+                'stats',
+                'recentVisitors',
+                'recentSessions',
+                'registrationsByDay',
+                'maximumDailyRegistrations'
+            )
         );
+    }
+
+    private function registrationsByDay(): Collection
+    {
+        $startDate = now()
+            ->subDays(6)
+            ->startOfDay();
+
+        $registrations = Visitor::query()
+            ->selectRaw(
+                'DATE(registered_at) AS registration_date, COUNT(*) AS total'
+            )
+            ->where('registered_at', '>=', $startDate)
+            ->groupByRaw('DATE(registered_at)')
+            ->pluck('total', 'registration_date');
+
+        return collect(range(6, 0))
+            ->map(function (int $daysAgo) use ($registrations): array {
+                $date = now()->subDays($daysAgo);
+
+                return [
+                    'date' => $date->toDateString(),
+                    'label' => $date
+                        ->locale('es')
+                        ->translatedFormat('D d'),
+                    'total' => (int) (
+                        $registrations[$date->toDateString()]
+                        ?? 0
+                    ),
+                ];
+            });
     }
 }
