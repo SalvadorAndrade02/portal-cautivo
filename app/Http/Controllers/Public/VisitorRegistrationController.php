@@ -16,48 +16,83 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Illuminate\Http\Request;
+use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Support\Facades\Crypt;
+use JsonException;
 
 class VisitorRegistrationController extends Controller
 {
-    public function create(Request $request): View
-    {
-        $interestAreas = InterestArea::query()
+    public function create(
+        Request $request
+    ): View {
+        /*
+     * Si todavía estamos dentro de la ventana
+     * CaptivePortalLogin de Android, mostramos
+     * únicamente una pantalla para abrir Chrome.
+     */
+        if (!$request->boolean('browser')) {
+            $browserUrl =
+                $request->fullUrlWithQuery([
+                    'browser' => 1,
+                ]);
+
+            return view(
+                'wifi.launcher',
+                compact('browserUrl')
+            );
+        }
+
+        /*
+     * Desde aquí ya estamos en Chrome.
+     */
+        $interestAreas =
+            InterestArea::query()
             ->where('active', true)
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
 
         $allowedOrigins = collect(
-            config('captive_portal.allowed_origins', [])
-        )
-            ->map(
-                fn(string $origin): string =>
-                rtrim(trim($origin), '/')
-            );
-
-        $requestedOrigin = rtrim(
-            trim(
-                (string) $request->query(
-                    'portal_origin',
-                    config(
-                        'captive_portal.default_origin'
-                    )
-                )
-            ),
-            '/'
+            config(
+                'captive_portal.allowed_origins',
+                []
+            )
+        )->map(
+            fn(string $origin): string =>
+            rtrim(
+                trim($origin),
+                '/'
+            )
         );
 
-        $portalOrigin = $allowedOrigins->contains(
-            $requestedOrigin
-        )
+        $requestedOrigin =
+            rtrim(
+                trim(
+                    (string) $request->query(
+                        'portal_origin',
+                        config(
+                            'captive_portal.default_origin'
+                        )
+                    )
+                ),
+                '/'
+            );
+
+        $portalOrigin =
+            $allowedOrigins->contains(
+                $requestedOrigin
+            )
             ? $requestedOrigin
             : (string) config(
                 'captive_portal.default_origin'
             );
 
-        $redirectUrl = $this->resolveRedirectUrl(
-            $request->query('redirect_url')
-        );
+        $redirectUrl =
+            $this->resolveRedirectUrl(
+                $request->query(
+                    'redirect_url'
+                )
+            );
 
         return view(
             'wifi.register',
@@ -130,6 +165,18 @@ class VisitorRegistrationController extends Controller
                 $visitor->interestAreas()->sync(
                     $data['interest_area_ids']
                 );
+
+                $interestRedirectUrl = InterestArea::query()
+                    ->whereIn(
+                        'id',
+                        $data['interest_area_ids']
+                    )
+                    ->where('active', true)
+                    ->whereNotNull('redirect_url')
+                    ->where('redirect_url', '!=', '')
+                    ->orderBy('sort_order')
+                    ->orderBy('id')
+                    ->value('redirect_url');
 
                 $visitor->consents()->create([
                     'privacy_notice_version' => config(
@@ -221,7 +268,7 @@ class VisitorRegistrationController extends Controller
 
                     'portal_origin' => $data['portal_origin'],
 
-                    'redirect_url' => $data['redirect_url']
+                    'redirect_url' => $interestRedirectUrl
                         ?? config(
                             'captive_portal.post_login_redirect_url'
                         ),
@@ -235,15 +282,67 @@ class VisitorRegistrationController extends Controller
 
     public function success(): View|RedirectResponse
     {
-        $visitorAccess = session('visitor_access');
+        $visitorAccess =
+            session('visitor_access');
 
         if (!is_array($visitorAccess)) {
-            return to_route('wifi.register.create');
+            return to_route(
+                'wifi.register.create'
+            );
         }
+
+        $payload = [
+            'visitor_name' =>
+            $visitorAccess['visitor_name']
+                ?? 'Visitante',
+
+            'username' =>
+            $visitorAccess['username']
+                ?? '',
+
+            'password' =>
+            $visitorAccess['password']
+                ?? '',
+
+            'portal_origin' =>
+            $visitorAccess['portal_origin']
+                ?? '',
+
+            'redirect_url' =>
+            $this->resolveRedirectUrl(
+                $visitorAccess['redirect_url'] ?? null
+            ),
+
+            /*
+         * El handoff solo puede utilizarse
+         * durante los próximos 3 minutos.
+         */
+            'expires_at' =>
+            now()
+                ->addMinutes(3)
+                ->timestamp,
+        ];
+
+        $encryptedHandoff =
+            Crypt::encryptString(
+                json_encode(
+                    $payload,
+                    JSON_THROW_ON_ERROR
+                )
+            );
+
+        /*
+     * Generamos una ruta RELATIVA.
+     *
+     * Esto evita volver a tener el problema
+     * de localhost en el celular.
+     */
 
         return view(
             'wifi.success',
-            compact('visitorAccess')
+            compact(
+                'visitorAccess',
+            )
         );
     }
 

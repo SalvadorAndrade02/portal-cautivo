@@ -124,3 +124,14 @@ Route::middleware('auth')
             [VisitorController::class, 'show']
         )->name('visitantes.show');
     });
+
+
+Route::get('/wifi/walled-garden-check', function () {
+    return response(
+        'LARAVEL_WALLED_GARDEN_OK',
+        200
+    )->header(
+        'Content-Type',
+        'text/plain'
+    );
+});
