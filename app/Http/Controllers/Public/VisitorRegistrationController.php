@@ -166,17 +166,25 @@ class VisitorRegistrationController extends Controller
                     $data['interest_area_ids']
                 );
 
-                $interestRedirectUrl = InterestArea::query()
-                    ->whereIn(
-                        'id',
-                        $data['interest_area_ids']
+                $firstSelectedInterestId =
+                    $data['interest_area_order'][0]
+                    ?? $data['interest_area_ids'][0]
+                    ?? null;
+
+                $interestRedirectUrl =
+                    $firstSelectedInterestId
+                    ? InterestArea::query()
+                    ->whereKey(
+                        $firstSelectedInterestId
                     )
-                    ->where('active', true)
-                    ->whereNotNull('redirect_url')
-                    ->where('redirect_url', '!=', '')
-                    ->orderBy('sort_order')
-                    ->orderBy('id')
-                    ->value('redirect_url');
+                    ->where(
+                        'active',
+                        true
+                    )
+                    ->value(
+                        'redirect_url'
+                    )
+                    : null;
 
                 $visitor->consents()->create([
                     'privacy_notice_version' => config(

@@ -29,6 +29,53 @@ class StoreVisitorRegistrationRequest extends FormRequest
             ->unique()
             ->values()
             ->all();
+        $interestAreaOrder =
+            collect(
+                $this->input(
+                    'interest_area_order',
+                    []
+                )
+            )
+            ->filter()
+            ->map(
+                fn(mixed $id): int =>
+                (int) $id
+            )
+            /*
+         * Solo aceptamos IDs que realmente
+         * estén seleccionados.
+         */
+            ->filter(
+                fn(int $id): bool =>
+                in_array(
+                    $id,
+                    $interestAreaIds,
+                    true
+                )
+            )
+            ->unique()
+            ->values()
+            ->all();
+
+        /*
+ * Fallback por si JavaScript no agregó
+ * alguno de los IDs.
+ */
+        foreach (
+            $interestAreaIds
+            as $interestAreaId
+        ) {
+            if (
+                !in_array(
+                    $interestAreaId,
+                    $interestAreaOrder,
+                    true
+                )
+            ) {
+                $interestAreaOrder[] =
+                    $interestAreaId;
+            }
+        }
 
         $this->merge([
             'full_name' => trim(
@@ -40,6 +87,8 @@ class StoreVisitorRegistrationRequest extends FormRequest
             'email' => strtolower(
                 trim((string) $this->input('email'))
             ),
+            'interest_area_order' =>
+            $interestAreaOrder,
 
             'interest_area_ids' => $interestAreaIds,
 
@@ -103,6 +152,30 @@ class StoreVisitorRegistrationRequest extends FormRequest
                             true
                         )
                     ),
+            ],
+
+            'interest_area_order' => [
+                'required',
+                'array',
+                'min:1',
+                'max:10',
+            ],
+
+            'interest_area_order.*' => [
+                'required',
+                'integer',
+                'distinct',
+
+                Rule::exists(
+                    'interest_areas',
+                    'id'
+                )->where(
+                    fn(Builder $query) =>
+                    $query->where(
+                        'active',
+                        true
+                    )
+                ),
             ],
 
             'privacy_accepted' => [

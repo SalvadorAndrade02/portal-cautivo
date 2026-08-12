@@ -457,6 +457,16 @@
 
                     <a
                         class="{{ request()->routeIs(
+        'panel.areas-interes.*'
+    ) ? 'nav-active' : '' }}"
+                        href="{{ route(
+        'panel.areas-interes.index'
+    ) }}">
+                        Áreas de interés
+                    </a>
+
+                    <a
+                        class="{{ request()->routeIs(
             'panel.dispositivos.*'
         ) ? 'nav-active' : '' }}"
                         href="{{ route('panel.dispositivos.index') }}">

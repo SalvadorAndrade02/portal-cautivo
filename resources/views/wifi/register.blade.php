@@ -269,6 +269,8 @@
                         @endforeach
                     </div>
 
+                    <div id="interestSelectionOrderInputs"></div>
+
                     @error('interest_area_ids')
                     <div class="error">{{ $message }}</div>
                     @enderror
@@ -355,6 +357,158 @@
             </form>
         </div>
     </div>
+    
+    <script>
+        const interestCheckboxes =
+            Array.from(
+                document.querySelectorAll(
+                    'input[name="interest_area_ids[]"]'
+                )
+            );
+
+        const orderContainer =
+            document.getElementById(
+                'interestSelectionOrderInputs'
+            );
+
+        /*
+         * Si el formulario volvió por una
+         * validación, recuperamos el orden
+         * previamente seleccionado.
+         */
+        const oldSelectionOrder = @json(
+            old(
+                'interest_area_order',
+                []
+            )
+        );
+
+        let selectionOrder =
+            Array.isArray(oldSelectionOrder) ?
+            oldSelectionOrder.map(
+                value => String(value)
+            ) :
+            [];
+
+        /*
+         * Eliminamos cualquier ID que ya no
+         * esté seleccionado.
+         */
+        function normalizeSelectionOrder() {
+            const checkedIds =
+                interestCheckboxes
+                .filter(
+                    checkbox =>
+                    checkbox.checked
+                )
+                .map(
+                    checkbox =>
+                    String(
+                        checkbox.value
+                    )
+                );
+
+            selectionOrder =
+                selectionOrder.filter(
+                    id =>
+                    checkedIds.includes(id)
+                );
+
+            /*
+             * Esto sirve como fallback si el
+             * navegador recargó checks antiguos
+             * pero no existe todavía un orden.
+             */
+            checkedIds.forEach(
+                id => {
+                    if (
+                        !selectionOrder.includes(
+                            id
+                        )
+                    ) {
+                        selectionOrder.push(
+                            id
+                        );
+                    }
+                }
+            );
+        }
+
+        function renderSelectionOrder() {
+            orderContainer.innerHTML =
+                '';
+
+            selectionOrder.forEach(
+                id => {
+                    const input =
+                        document.createElement(
+                            'input'
+                        );
+
+                    input.type =
+                        'hidden';
+
+                    input.name =
+                        'interest_area_order[]';
+
+                    input.value =
+                        id;
+
+                    orderContainer.appendChild(
+                        input
+                    );
+                }
+            );
+        }
+
+        interestCheckboxes.forEach(
+            checkbox => {
+                checkbox.addEventListener(
+                    'change',
+                    function() {
+                        const id =
+                            String(
+                                checkbox.value
+                            );
+
+                        if (
+                            checkbox.checked
+                        ) {
+                            /*
+                             * Se seleccionó ahora:
+                             * va al final del orden.
+                             */
+                            if (
+                                !selectionOrder.includes(
+                                    id
+                                )
+                            ) {
+                                selectionOrder.push(
+                                    id
+                                );
+                            }
+
+                        } else {
+                            /*
+                             * Si lo desmarca,
+                             * desaparece del orden.
+                             */
+                            selectionOrder =
+                                selectionOrder.filter(
+                                    selectedId =>
+                                    selectedId !== id
+                                );
+                        }
+
+                        renderSelectionOrder();
+                    }
+                );
+            }
+        );
+
+        normalizeSelectionOrder();
+        renderSelectionOrder();
+    </script>
 </body>
 
 </html>

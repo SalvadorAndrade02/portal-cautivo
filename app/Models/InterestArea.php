@@ -14,9 +14,9 @@ class InterestArea extends Model
         'name',
         'slug',
         'description',
+        'redirect_url',
         'active',
         'sort_order',
-        'redirect_url',
     ];
 
     protected function casts(): array

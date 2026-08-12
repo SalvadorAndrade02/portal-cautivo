@@ -12,6 +12,7 @@ use App\Http\Controllers\Panel\AccessSessionController;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Public\VisitorRegistrationController;
 use App\Http\Controllers\Panel\VisitorController;
+use App\Http\Controllers\Panel\InterestAreaController;
 
 Route::get('/', function () {
     return Auth::check()
@@ -123,6 +124,19 @@ Route::middleware('auth')
             'visitantes/{visitor}',
             [VisitorController::class, 'show']
         )->name('visitantes.show');
+
+        Route::resource(
+            'areas-interes',
+            InterestAreaController::class
+        )
+            ->parameters([
+                'areas-interes' =>
+                'interestArea',
+            ])
+            ->except([
+                'show',
+                'destroy',
+            ]);
     });
 
 
